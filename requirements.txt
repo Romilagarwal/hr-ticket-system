@@ -1,0 +1,5 @@
+Flask==2.3.3
+Flask-Mail==0.9.1
+psycopg2-binary==2.9.9
+Werkzeug==2.3.7
+python-dotenv==0.9.9
