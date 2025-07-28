@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Queries - Employee Dashboard</title>
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .company-left {
+            text-align: left;
+        }
+
+        .company-left h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            text-shadow: none;
+        }
+
+        .company-left p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.8;
+            color: white;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .header h1 {
+            color: #2c5aa0;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .user-info {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-details {
+            text-align: left;
+        }
+        
+        .user-details h3 {
+            color: #2c5aa0;
+            margin-bottom: 5px;
+        }
+        
+        .user-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .new-grievance-btn, .logout-btn {
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .new-grievance-btn {
+            background: #2c5aa0;
+            color: white;
+        }
+        
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .new-grievance-btn:hover, .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-count {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #111 !important; /* Make numbers clearly visible and black */
+            background: none !important; /* Remove any background */
+            border-radius: 0 !important; /* Remove border radius */
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .status-submitted .stat-count,
+        .status-in-progress .stat-count,
+        .status-resolved .stat-count,
+        .status-reopened .stat-count,
+        .status-total .stat-count {
+            color: #111 !important;
+            background: none !important;
+            border-radius: 0 !important;
+        }
+
+        .status-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        .status-table th, .status-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e6ed;
+        }
+
+        .status-table th {
+            background: #2c5aa0;
+            color: white;
+            font-weight: 600;
+        }
+
+        .status-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            color: white;
+            display: inline-block;
+        }
+
+        .status-submitted { background: #3498db; }
+        .status-in-progress { background: #f39c12; }
+        .status-resolved { background: #27ae60; }
+        .status-reopened { background: #e74c3c; }
+
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+
+        .flash-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .empty-state i {
+            font-size: 60px;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+        
+        .empty-state h2 {
+            color: #2c5aa0;
+            margin-bottom: 10px;
+        }
+        
+        .empty-state p {
+            color: #666;
+            margin-bottom: 20px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        .view-details {
+            color: #2c5aa0;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        .view-details i {
+            margin-left: 5px;
+            font-size: 12px;
+        }
+        
+        .view-details:hover {
+            text-decoration: underline;
+        }
+        
+        .company-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: white;
+            padding: 20px 40px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .company-left {
+            text-align: left;
+        }
+
+        .company-left h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            text-shadow: none;
+        }
+
+        .company-left p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.8;
+            color: white;
+        }
+
+        .company-right {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: right;
+            color: white;
+            text-shadow: none;
+        }
+
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background: #fff;
+            margin: 60px auto;
+            padding: 30px 25px;
+            border-radius: 12px;
+            max-width: 600px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 18px;
+            font-size: 28px;
+            font-weight: bold;
+            color: #888;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .modal-close:hover {
+            color: #e74c3c;
+        }
+
+        /* Add these styles near the end of your existing styles */
+        .emoji-rating {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .emoji-display {
+            font-size: 1.8rem;
+            cursor: help;
+            transition: transform 0.2s ease;
+        }
+        
+        .navitasys-logo {
+                height: 38px;      /* Adjust as needed */
+                width: auto;
+                vertical-align: middle;
+                margin-right: 10px;
+            }
+
+        .emoji-display:hover {
+            transform: scale(1.2);
+        }
+
+        @media (max-width: 768px) {
+            .user-info {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .user-details {
+                text-align: center;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .status-table {
+                font-size: 14px;
+            }
+            
+            .status-table th, .status-table td {
+                padding: 10px 8px;
+            }
+            
+            .status-badge {
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+            
+            .hidden-mobile {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="company-header" style="display: flex; justify-content: space-between; align-items: center;background-color: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); color: black; padding: 20px 40px;">
+    <div class="company-left">
+        <img src="{{ url_for('static', filename= 'image/final_logo.png') }}" class="navitasys-logo" alt="Navitasys Logo">
+    </div>
+    <div style="display: flex; align-items: center; gap: 22px;">
+        <div style="text-align: right; margin-right: 10px;">
+            <strong style="font-size: 18px;">{{ session['user']['employee_name'] }}</strong><br>
+            <span style="color: black;font-size: 14px; ">{{ session['user']['emp_code'] }}</span><br>
+            <span style="color: black;font-size: 14px; ">{{ masked_phone }}</span>
+        </div>
+        <a href="{{ url_for('new_grievance') }}" class="new-grievance-btn" style="margin-right: 6px;">
+            <i class="fas fa-plus"></i> New Query
+        </a>
+        <a href="{{ url_for('logout') }}" class="logout-btn">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </div>
+</div>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-clipboard-list"></i> My Dashboard</h1>
+            <p>View and track your submitted queries</p><img src="{{ url_for('static', filename='image/ask_hr_logo.png') }}" alt="ASK HR Logo" style="max-width: 200px; margin-bottom: 20px;">
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' }}"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        {% if grievances %}
+            <div class="stats-grid">
+                <div class="stat-card status-total">
+                    <i class="fas fa-clipboard-list"></i>
+                    <div class="stat-count">{{ total_grievances }}</div>
+                    <div class="stat-label">Total Queries</div>
+                </div>
+                <div class="stat-card status-submitted">
+                    <i class="fas fa-paper-plane"></i>
+                    <div class="stat-count">{{ status_counts.get('Submitted')|default(0) }}</div>
+                    <div class="stat-label">Submitted</div>
+                </div>
+                <div class="stat-card status-in-progress">
+                    <i class="fas fa-spinner"></i>
+                    <div class="stat-count">{{ status_counts.get('In Progress')|default(0) }}</div>
+                    <div class="stat-label">In Progress</div>
+                </div>
+                <div class="stat-card status-resolved">
+                    <i class="fas fa-check-circle"></i>
+                    <div class="stat-count">{{ status_counts.get('Resolved')|default(0) }}</div>
+                    <div class="stat-label">Resolved</div>
+                </div>
+                <div class="stat-card status-reopened">
+                    <i class="fas fa-redo"></i>
+                    <div class="stat-count">{{ status_counts.get('Reopened')|default(0) }}</div>
+                    <div class="stat-label">Reopened</div>
+                </div>
+            </div>
+            
+            <table class="status-table">
+                <thead>
+                    <tr>
+                        <th>Reference ID</th>
+                        <th>Query Type</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                        <th>Submission Date</th>
+                        <th class="hidden-mobile">Last Update</th>
+                        <th>Rating</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grievance in grievances %}
+                        <tr>
+                            <td>{{ grievance['id'] }}</td>
+                            <td>{{ grievance_types[grievance['grievance_type']] }}</td>
+                            <td>
+                                {{ grievance['subject'] }}
+                                <a href="#" class="view-details">
+                                </a>
+                            </td>
+                            <td>
+                                <span class="status-badge status-{{ grievance['status']|lower|replace(' ', '-') }}">
+                                    {{ grievance['status'] }}
+                                </span>
+                            </td>
+                            <td>{{ grievance['submission_date'].strftime('%Y-%m-%d') }}</td>
+                            <td class="hidden-mobile">{{ grievance['updated_at'].strftime('%Y-%m-%d') }}</td>
+                            <td>
+    {# Case 1: Ticket is Resolved and NO feedback has been submitted yet #}
+    {% if grievance['status'] == 'Resolved' and not grievance['satisfaction'] %}
+        <a href="{{ url_for('feedback', grievance_id=grievance['id'], response='resolved') }}" class="submit-btn">
+            <i class="fas fa-star"></i> Rate
+        </a>
+
+    {# Case 2: Feedback was submitted WITH a numerical rating #}
+    {% elif grievance['rating'] %}
+        <span class="emoji-rating">
+            {% if grievance['rating'] == 1 %}
+                <span class="emoji-display" title="Very Poor">😡</span>
+            {% elif grievance['rating'] == 2 %}
+                <span class="emoji-display" title="Poor">😞</span>
+            {% elif grievance['rating'] == 3 %}
+                <span class="emoji-display" title="Average">😐</span>
+            {% elif grievance['rating'] == 4 %}
+                <span class="emoji-display" title="Good">😊</span>
+            {% elif grievance['rating'] == 5 %}
+                <span class="emoji-display" title="Excellent">🤩</span>
+            {% endif %}
+        </span>
+
+    {# Case 3: Feedback was submitted as "Not Resolved" #}
+    {% elif grievance['satisfaction'] == 'not_resolved' %}
+        <span class="status-badge status-reopened" title="Feedback was 'Not Resolved'">
+            Not Resolved
+        </span>
+    {% endif %}
+</td>
+                            <td>
+                                <button type="button" class="submit-btn" style="background:#7f8c8d;" onclick="openDetailsModal('details-modal-{{ grievance['id']}}')">
+                                    <i class="fas fa-eye"></i> Details
+                                </button>
+                                {% if grievance['status'] == 'Submitted' %}
+                                {% set edit_count = grievance['edit_count'] if grievance['edit_count'] is defined and grievance['edit_count'] is not none else 0 %}                                
+                                {% if edit_count < 2 %}
+                                    <a href="{{ url_for('edit_grievance', grievance_id=grievance['id']) }}" class="submit-btn" style="background:gray; font-size: 13px;">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                {% endif %}
+                                <form action="{{ url_for('delete_grievance_employee') }}" method="POST" style="display:inline;">
+                                    <input type="hidden" name="grievance_id" value="{{ grievance['id'] }}">
+                                    <button type="submit" class="submit-btn" style="background:#e74c3c; font-size: 13px;" onclick="return confirm('Are you sure you want to delete this query?');">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <i class="far fa-clipboard"></i>
+                <h2>No Queries Found</h2>
+                <p>You haven't submitted any queries yet. Use the button below to submit your first query.</p>
+                <a href="{{ url_for('new_grievance') }}" class="submit-btn">
+                    <i class="fas fa-plus"></i> Submit New Query
+                </a>
+            </div>
+        {% endif %}
+        {% for grievance in grievances %}
+    <div id="details-modal-{{ grievance['id'] }}" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeDetailsModal('details-modal-{{ grievance['id'] }}')">&times;</span>            
+            <h3>Details for Query #{{ grievance['id'] }}</h3>
+            <p><strong>Subject:</strong> {{ grievance['subject'] }}</p>
+            <p><strong>Your Description:</strong><br>{{ grievance['description']|nl2br }}</p>
+            {% if grievance['attachment_path'] %}
+                <p><strong>Your Attachment:</strong> 
+                <a href="{{ url_for('download_file', user_type='employee', emp_code=grievance['emp_code'], filename=grievance['attachment_path']) }}" target="_blank">
+                    View Your Attachment
+                </a>
+                </p>
+            {% endif %}
+            
+            <hr style="margin: 20px 0;">
+            <h4>HR Responses</h4>
+            {% if grievance.responses and grievance.responses|length > 0 %}
+                {% for response in grievance.responses %}
+                    <div class="response-item">
+                        <p><strong>From:</strong> {{ response.responder_name }} on {{ response.response_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                        <p>{{ response.response_text|nl2br }}</p>
+                        {% if response.attachment_path %}
+                            <p><strong>HR Attachment:</strong> 
+                            <a href="{{ url_for('download_file', user_type='hr', emp_code=response.hr_emp_code, filename=response.attachment_path) }}" target="_blank">                                View HR Attachment
+                            </a>
+                            </p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>No responses from HR yet.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    </div>
+    <script>
+        function openDetailsModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+        }
+        function closeDetailsModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        // Close modal if user clicks outside of it
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>

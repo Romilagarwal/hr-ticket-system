@@ -42,7 +42,9 @@ app.config['SERVER_NAME'] = os.environ.get('SERVER_NAME')
 app.config['PREFERRED_URL_SCHEME'] = os.environ.get('PREFERRED_URL_SCHEME', 'http')
 app.config['APPLICATION_ROOT'] = '/'
 
-UPLOAD_FOLDER = r'D:\hr_ticket_system_done\uploads'
+basedir = os.path.abspath(os.path.dirname(__file__))
+UPLOAD_FOLDER = os.path.join(basedir, 'uploads')
+
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx'}
 
 app.config['DB_CONFIG'] = {
@@ -301,7 +303,7 @@ def init_db():
         raise
     finally:
         db_pool.putconn(conn)
-        
+
 def send_email_flask_mail(to_email, subject, body, attachment_path=None):
     print("\n" + "="*60)
     print("📧 FLASK-MAIL EMAIL SENDING STARTED")
@@ -409,8 +411,8 @@ def send_whatsapp_template(to_phone, template_name, lang_code, parameters):
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
-    
-    
+
+
     payload = {
         "messaging_product": "whatsapp",
         "to": to_phone,
@@ -420,16 +422,16 @@ def send_whatsapp_template(to_phone, template_name, lang_code, parameters):
             "language": {"code": lang_code}
         }
     }
-    
-    
+
+
     components = []
-    
+
     if parameters:
         if template_name == "otp_login_verification" and len(parameters) >= 1:
             components.append({
                 "type": "body",
                 "parameters": [
-                    {"type": "text", "text": str(parameters[0])},  
+                    {"type": "text", "text": str(parameters[0])},
                 ]
             })
             components.append({
@@ -440,10 +442,10 @@ def send_whatsapp_template(to_phone, template_name, lang_code, parameters):
             })
         elif template_name != "hello_world_private":
             components.append({"type": "body", "parameters": [{"type": "text", "text": str(val)} for val in parameters]})
-    
+
     if components:
         payload["template"]["components"] = components
-    
+
     try:
         resp = requests.post(url, headers=headers, json=payload, timeout=10)
         print(f"WhatsApp API response: {resp.status_code} {resp.text}")
@@ -543,7 +545,7 @@ def submit_grievance():
                 filename = secure_filename(f"{grievance_id}_{file.filename}")
                 full_path = os.path.join(upload_dir, filename)
                 file.save(full_path)
-                attachment_path = filename  
+                attachment_path = filename
                 print(f"   ✅ File saved: {attachment_path}")
                 print(f"   File size: {os.path.getsize(full_path)} bytes")
             elif file and file.filename != '':
@@ -710,8 +712,8 @@ def get_user_details():
                     return jsonify({'success': True, 'employee_name': row[0], 'employee_phone': row[1]})
             else:
                 c.execute('''
-                    SELECT employee_name, employee_email, employee_phone 
-                    FROM users 
+                    SELECT employee_name, employee_email, employee_phone
+                    FROM users
                     WHERE emp_code = %s AND role IN ('hr', 'admin')
                 ''', (emp_code,))
                 row = c.fetchone()
@@ -761,7 +763,7 @@ def respond_grievance(grievance_id):
                         filename = secure_filename(f"response_{grievance_id}_{file.filename}")
                         full_path = os.path.join(upload_dir, filename)
                         file.save(full_path)
-                        response_attachment_path = filename  
+                        response_attachment_path = filename
 
                 response_date = datetime.now()
                 c.execute('''INSERT INTO responses
@@ -807,10 +809,10 @@ def respond_grievance(grievance_id):
                         template_name="grievance_resolution_confirmation",
                         lang_code="en",
                         parameters=[
-                            employee_name,         
-                            grievance_id,      
-                            grievance[8],      
-                            datetime.now().strftime('%d-%m-%Y, %H:%M:%S')  
+                            employee_name,
+                            grievance_id,
+                            grievance[8],
+                            datetime.now().strftime('%d-%m-%Y, %H:%M:%S')
                         ]
                     )
                 flash('Response submitted successfully.', 'success')
@@ -909,7 +911,7 @@ def submit_feedback(grievance_id):
                 <html>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                        <h2 style="color: #1e3a8a;"> 
+                        <h2 style="color: #1e3a8a;">
                             Query Reopened (ID: {grievance_id}): Ask HR
                         </h2>
                         <p>Dear {hr_name or 'HR'},</p>
@@ -1022,9 +1024,9 @@ def check_pending_grievances():
                 hr_email = grievance[6] or admin_email
                 hr_phone = grievance[7] or admin_phone
 
-                
+
                 hr_name = None
-                if grievance[5]:  
+                if grievance[5]:
                     c.execute("SELECT employee_name FROM users WHERE emp_code = %s", (grievance[5],))
                     hr_name_row = c.fetchone()
                     hr_name = hr_name_row[0] if hr_name_row else None
@@ -1043,7 +1045,7 @@ def check_pending_grievances():
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
     <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
-        <h2 style="color: #1e2a8a;"> 
+        <h2 style="color: #1e2a8a;">
             Urgent: Query Pending for over {int(hours_pending)} Hours: Ask HR
         </h2>
         <p>This is an automated reminder that the following query has been pending without resolution:</p>
@@ -1510,7 +1512,7 @@ def my_queries():
                 responses = []
                 for resp in c.fetchall():
                     hr_emp_code = None
-                    if resp[4]:  
+                    if resp[4]:
                         c.execute('SELECT emp_code FROM users WHERE employee_email = %s', (resp[4],))
                         hr_row = c.fetchone()
                         hr_emp_code = hr_row[0] if hr_row else ''
@@ -1518,7 +1520,7 @@ def my_queries():
                         'responder_name': resp[0],
                         'response_text': resp[1],
                         'response_date': resp[2],
-                        'attachment_path': resp[3],  
+                        'attachment_path': resp[3],
                         'hr_emp_code': hr_emp_code
                         })
                 grievance_dict['responses'] = responses
@@ -1734,7 +1736,7 @@ def edit_grievance(grievance_id):
                         upload_dir = get_upload_path('employee', emp_code)
                         filename = secure_filename(f"{grievance_id}_{file.filename}")
                         file.save(os.path.join(upload_dir, filename))
-                        attachment_path = filename  
+                        attachment_path = filename
 
                 if not subject or not description:
                     flash('Subject and description are required.', 'error')
@@ -1751,12 +1753,12 @@ def edit_grievance(grievance_id):
                 ''', (subject, grievance_type, attachment_path, description, datetime.now(), grievance_id))
                 conn.commit()
 
-                
+
                 employee_email = grievance[3]
                 employee_name = grievance[2]
                 employee_phone = grievance[4]
 
-                
+
                 email_subject = f"Your Query (ID: {grievance_id}) Has Been Updated"
                 email_body = f"""
                 <html>
@@ -1791,7 +1793,7 @@ def edit_grievance(grievance_id):
                         ]
                     )
 
-                
+
                 if grievance_type == old_grievance_type:
                     c.execute('''
                         SELECT u.employee_email, u.employee_name, u.employee_phone
@@ -1806,7 +1808,7 @@ def edit_grievance(grievance_id):
                         hr_body = f"""
                         <html>
                         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
-    <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;"> 
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
                                 <h2 style="color: #1e3a8a;">Query Updated: Ask HR</h2>
                                 <p>Dear {hr_name},</p>
                                 <p>The following query assigned to you has been updated by the employee:</p>
@@ -1836,7 +1838,7 @@ def edit_grievance(grievance_id):
                                 ]
                             )
                 else:
-                    
+
                     c.execute('''
                         SELECT u.employee_email, u.employee_name, u.employee_phone
                         FROM hr_grievance_mapping m
@@ -1849,9 +1851,9 @@ def edit_grievance(grievance_id):
                         hr_subject = f"New Query Assigned (ID: {grievance_id})"
                         hr_body = f"""
                         <html>
-                        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: 
-                            <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: 
-                                <h2 style="color: 
+                        <body style="font-family: Arial, sans-serif; line-height: 1.6; color:
+                            <div style="max-width: 600px; margin: 0 auto; padding: 20px; background:
+                                <h2 style="color:
                                 <p>Dear {new_hr_name},</p>
                                 <p>A query has been updated and is now assigned to you:</p>
                                 <div style="background: white; padding: 20px; border-radius: 8px;">
@@ -1903,7 +1905,7 @@ def delete_grievance_employee():
     conn = db_pool.getconn()
     try:
         with conn.cursor() as c:
-            
+
             c.execute('SELECT id, emp_code, employee_name, employee_email, employee_phone, grievance_type, subject, status FROM grievances WHERE id = %s AND emp_code = %s', (grievance_id, user['emp_code']))
             gr = c.fetchone()
             if not gr:
@@ -1913,7 +1915,7 @@ def delete_grievance_employee():
                 flash('You can only delete queries that are still submitted.', 'error')
                 return redirect(url_for('my_queries'))
 
-            
+
             c.execute('''
                 SELECT u.employee_email, u.employee_name, u.employee_phone
                 FROM hr_grievance_mapping m
@@ -1923,23 +1925,23 @@ def delete_grievance_employee():
             hr_info = c.fetchone()
             hr_email, hr_name, hr_phone = hr_info if hr_info else (None, None, None)
 
-            
+
             c.execute('DELETE FROM grievances WHERE id = %s AND emp_code = %s', (grievance_id, user['emp_code']))
             conn.commit()
 
-            
+
             employee_name = gr[2]
             employee_email = gr[3]
             employee_phone = gr[4]
             subject = gr[6]
 
-            
+
             email_subject_emp = f"Your Query Request Deleted (ID: {grievance_id})"
             email_body_emp = f"""
             <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;"> 
-                    <h2 style="color:#1e3a8a;">Query Deleted: Ask HR</h2> 
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
+                    <h2 style="color:#1e3a8a;">Query Deleted: Ask HR</h2>
                     <p>Dear {employee_name},</p>
                     <p>Your query request with the following details has been <b>deleted</b>:</p>
                     <div style="background: white; padding: 20px; border-radius: 8px;">
@@ -1966,14 +1968,14 @@ def delete_grievance_employee():
                     ]
                 )
 
-            
+
             if hr_email:
                 email_subject_hr = f"Query Request Deleted by Employee (ID: {grievance_id})"
                 email_body_hr = f"""
                 <html>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
-                        <h2 style="color:#1e3a8a;">Query Deleted: Ask HR</h2> 
+                        <h2 style="color:#1e3a8a;">Query Deleted: Ask HR</h2>
                         <p>Dear {hr_name or 'HR'},</p>
                         <p>The following query has been <b>deleted by the employee</b>:</p>
                         <div style="background: white; padding: 20px; border-radius: 8px;">
@@ -1997,7 +1999,7 @@ def delete_grievance_employee():
                         hr_name or "HR",
                         grievance_id,
                         subject,
-                        employee_name     
+                        employee_name
                     ]
                 )
 
@@ -2026,7 +2028,7 @@ def delete_grievance():
     conn = db_pool.getconn()
     try:
         with conn.cursor() as c:
-            
+
             c.execute('SELECT employee_name, employee_email, employee_phone, subject FROM grievances WHERE id = %s', (grievance_id,))
             gr = c.fetchone()
             if not gr:
@@ -2034,20 +2036,20 @@ def delete_grievance():
                 return redirect(url_for('master_dashboard'))
             employee_name, employee_email, employee_phone, subject = gr
 
-            
+
             c.execute('DELETE FROM feedback WHERE grievance_id = %s', (grievance_id,))
             c.execute('DELETE FROM responses WHERE grievance_id = %s', (grievance_id,))
             c.execute('DELETE FROM reminder_sent WHERE grievance_id = %s', (grievance_id,))
             c.execute('DELETE FROM grievances WHERE id = %s', (grievance_id,))
             conn.commit()
 
-            
+
             email_subject = f"Your Query Request Deleted (ID: {grievance_id})"
             email_body = f"""
             <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
-                    <h2 style="color: #1e3a8a;">Query Deleted: Ask HR</h2> 
+                    <h2 style="color: #1e3a8a;">Query Deleted: Ask HR</h2>
                     <p>Dear {employee_name},</p>
                     <p>Your query request with the following details has been <b>deleted</b> by the admin:</p>
                     <div style="background: white; padding: 20px; border-radius: 8px;">
@@ -2150,7 +2152,7 @@ def manage_hr_mappings():
                     'name': row[1],
                     'emp_code': row[2]
                 }
-            
+
             # The hr_staff variable is no longer needed for the form,
             # but we keep it for now if other parts of the system use it.
             c.execute("SELECT emp_code, employee_name FROM users WHERE role = 'hr' ORDER BY employee_name")
@@ -2182,7 +2184,7 @@ def reassign_grievance():
     conn = db_pool.getconn()
     try:
         with conn.cursor() as c:
-            
+
             c.execute('''
                 SELECT g.id, g.employee_name, g.grievance_type, g.subject, u.employee_name, u.employee_email
                 FROM grievances g
@@ -2196,14 +2198,14 @@ def reassign_grievance():
                 flash('Query not found', 'error')
                 return redirect(url_for('master_dashboard'))
 
-            
+
             c.execute('SELECT employee_name, employee_email, employee_phone FROM users WHERE emp_code = %s', (new_hr_emp_code,))
             new_hr = c.fetchone()
             if not new_hr:
                 flash('Selected HR staff not found', 'error')
                 return redirect(url_for('master_dashboard'))
 
-            
+
             c.execute('''
                 INSERT INTO hr_grievance_mapping (grievance_type, hr_emp_code)
                 VALUES (%s, %s)
@@ -2211,14 +2213,14 @@ def reassign_grievance():
                 SET hr_emp_code = EXCLUDED.hr_emp_code
             ''', (f"temp_{grievance_id}", new_hr_emp_code))
 
-            
+
             c.execute('''
                 UPDATE grievances
                 SET grievance_type = %s
                 WHERE id = %s
             ''', (f"temp_{grievance_id}", grievance_id))
 
-            
+
             c.execute('''
                 INSERT INTO responses
                 (grievance_id, responder_email, responder_name, response_text, response_date)
@@ -2228,13 +2230,13 @@ def reassign_grievance():
 
             conn.commit()
 
-            
+
             notify_subject = f"Query forwarded to You - {grievance[3]} (ID: {grievance_id})"
             notify_body = f"""
             <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
-                    <h2 style="color:#1e3a8a;">Query forwarded: Ask HR</h2> 
+                    <h2 style="color:#1e3a8a;">Query forwarded: Ask HR</h2>
                         Query forwarded to You (ID: {grievance_id})
                     </h2>
                     <p>Dear {new_hr[0]},</p>
@@ -2256,24 +2258,24 @@ def reassign_grievance():
             </html>
             """
 
-            
+
             send_email_flask_mail(new_hr[1], notify_subject, notify_body)
 
-            
+
             if new_hr[2]:
                 send_whatsapp_template(
-                    to_phone=new_hr[2],  
+                    to_phone=new_hr[2],
                     template_name="grievance_reassigned_hr",
                     lang_code="en",
                     parameters=[
-                        new_hr[0],         
-                        grievance_id,      
-                        grievance[3],      
-                        datetime.now().strftime('%d-%m-%Y, %H:%M:%S')  
+                        new_hr[0],
+                        grievance_id,
+                        grievance[3],
+                        datetime.now().strftime('%d-%m-%Y, %H:%M:%S')
                     ]
                 )
-            
-            if grievance[5]:  
+
+            if grievance[5]:
                 prev_notify_subject = f"Query forwarded - {grievance[3]} (ID: {grievance_id})"
                 prev_notify_body = f"""
                 <html>
@@ -2335,7 +2337,7 @@ def resend_otp():
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
     <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
-        <h2 style="color: #1e3a8a;">OTP Verification: Ask HR</h2> 
+        <h2 style="color: #1e3a8a;">OTP Verification: Ask HR</h2>
         <p>Dear {name or emp_code},</p>
         <p>Your OTP for Ask HR Portal Login is: {otp}</p>
         <p>This code will expire in 05 minutes.</p>
@@ -2366,14 +2368,14 @@ def parse_sap_date(date_string):
     import re
     from datetime import datetime
 
-    
+
     match = re.search(r'/Date\((\d+)\)/', date_string)
     if not match:
         return None
 
-    
+
     milliseconds = int(match.group(1))
-    seconds = milliseconds / 1000  
+    seconds = milliseconds / 1000
     dt = datetime.fromtimestamp(seconds)
 
     return dt
@@ -2507,7 +2509,7 @@ def get_employee_sap():
 
         full_name = f"{first_name} {middle_name} {last_name}".replace('  ', ' ').strip()
 
-        work_email = ''  
+        work_email = ''
         email_list = safe_get(result, 'employmentNav', 'personNav', 'emailNav', 'results')
 
         print(f"📧 EMAIL EXTRACTION DEBUG: Found email list: {email_list}")
@@ -2518,7 +2520,7 @@ def get_employee_sap():
                 if email_address and '@nvtpower.com' in email_address.lower():
                     work_email = email_address
                     print(f"  ✅ Found work email: {work_email}")
-                    break 
+                    break
         email = work_email
 
         employee_data = {
@@ -2566,10 +2568,25 @@ def privacy_policy():
 def terms_of_service():
     return render_template('terms.html')
 
-@app.route('/download/<user_type>/<emp_code>/<filename>')
+@app.route('/download/<user_type>/<emp_code>/<path:filename>')
 def download_file(user_type, emp_code, filename):
+    safe_filename = os.path.basename(filename)
+
     directory = os.path.join(UPLOAD_FOLDER, user_type, emp_code)
-    return send_from_directory(directory, filename, as_attachment=True)
+
+    print(f"DOWNLOAD ATTEMPT:")
+    print(f"  > Directory: {directory}")
+    print(f"  > Sanitized Filename: {safe_filename}")
+
+    try:
+        return send_from_directory(directory, safe_filename, as_attachment=True)
+    except FileNotFoundError:
+        print(f"  > ERROR: File not found at path: {os.path.join(directory, safe_filename)}")
+        flash('The requested file could not be found on the server.', 'error')
+        if 'user' in session and session['user'].get('role') == 'employee':
+            return redirect(url_for('my_queries'))
+        else:
+            return redirect(url_for('hr_dashboard'))
 
 if __name__ == '__main__':
     init_db()
