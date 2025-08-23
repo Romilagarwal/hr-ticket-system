@@ -314,6 +314,12 @@ def init_db():
         db_pool.putconn(conn)
         
 def send_email_flask_mail(to_email, subject, body, attachment_path=None):
+    if not to_email:
+        print("\n" + "="*60)
+        print("📭 NO EMAIL PROVIDED – SKIPPING SMTP SEND (WhatsApp-only flow).")
+        print(f" Subject: {subject}")
+        print(" Returning success=True so process continues.\n" + "="*60)
+        return True
     print("\n" + "="*60)
     print("📧 SMTP EMAIL SENDING STARTED")
     print("="*60)
@@ -562,7 +568,7 @@ def submit_grievance():
         print(f"   Subject: {subject}")
         print(f"   Description Length: {len(description) if description else 0} characters")
 
-        if not all([emp_code, employee_name, employee_email, grievance_type, subject, description]):
+        if not all([emp_code, employee_name,employee_phone, grievance_type, subject, description]):
             print(f"❌ VALIDATION FAILED: Missing required fields")
             flash('Please fill in all required fields.', 'error')
             return redirect(url_for('index'))
@@ -1698,7 +1704,8 @@ def master_dashboard():
                     g.id, g.emp_code, g.employee_name, g.employee_email,
                     g.grievance_type, g.subject, g.status, g.submission_date,
                     u.employee_name as hr_name,
-                    f.rating, f.satisfaction, f.feedback_comments
+                    f.rating, f.satisfaction, f.feedback_comments,
+                    g.description, g.updated_at
                 FROM grievances g
                 LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
                 LEFT JOIN users u ON m.hr_emp_code = u.emp_code
@@ -1758,9 +1765,30 @@ def master_dashboard():
                     'hr_name': g[8] or 'Unassigned',
                     'rating': g[9],
                     'satisfaction': g[10],
-                    'feedback_comments': g[11]
+                    'feedback_comments': g[11],
+                    'description': g[12],
+                    'updated_at': g[13],
+                    'responses': []
                 })
-
+            ids = [gr['id'] for gr in grievances]
+            if ids:
+                c.execute("""
+                    SELECT grievance_id, responder_name, responder_email, response_text, response_date, attachment_path
+                    FROM responses
+                    WHERE grievance_id = ANY(%s)
+                    ORDER BY response_date ASC
+                    """, (ids,))
+                resp_map = {}
+                for gid, rname, remail, rtext, rdate, rattach in c.fetchall():
+                    resp_map.setdefault(gid, []).append({
+                        'responder_name': rname,
+                        'responder_email': remail,
+                        'message': rtext,
+                        'created_at': rdate.strftime('%Y-%m-%d %H:%M') if rdate else '',
+                        'attachment_path': rattach
+                    })
+                for gr in grievances:
+                    gr['responses'] = resp_map.get(gr['id'], [])
             return render_template('master_dashboard.html',
                                  grievances=grievances,
                                  grievance_types=GRIEVANCE_TYPES,
