@@ -10,6 +10,7 @@ import traceback2 as traceback
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 import time
 import random
 import string
@@ -28,6 +29,13 @@ from email import encoders
 load_dotenv()
 
 app = Flask(__name__)
+
+REMINDER_INITIAL_THRESHOLD_HOURS = 72       
+REMINDER_REPEAT_EVERY_HOURS = 72             # repeat cadence (None to disable)
+REMINDER_SCAN_INTERVAL_HOURS = 1             # scan frequency
+DAILY_SUMMARY_HOURS = [9, 16]                # 09:00 & 16:00 HR summaries
+MAX_ITEMS_IN_DAILY_EMAIL = 40                
+EMPLOYEE_MAX_REPLIES = 2                     # employee reply cap (instead of edit)
 
 def nl2br_filter(text):
     if text is None:
@@ -97,7 +105,9 @@ GRIEVANCE_TYPES = {
     'reward': 'Reward',
     'address_proof': 'Address Proof',
     'id_card': 'ID Card',
-    'income_tax': 'Income Tax related Queries'
+    'income_tax': 'Income Tax related Queries',
+    'testing1':'testing1',
+    'testing2':'testing2'
 }
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -243,11 +253,22 @@ def init_db():
                     END IF;
                 END $$;
             ''')
+            c.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='grievances' AND column_name='reply_count'
+                    ) THEN
+                        ALTER TABLE grievances ADD COLUMN reply_count INTEGER DEFAULT 0;
+                    END IF;
+                END $$;
+            ''')
 
             hr_users = [
                 ('HR001', 'HR1', '8318436133', 'romil.agarwal@nvtpower.com', 'hr'),
-                ('HR002', 'HR2', '8318436133', 'danshi.gupta@nvtpower.com', 'hr'),
-                ('9022246', 'Mr. Sunil', '9468132267', 'sunil.kumar@nvtpower.com', 'hr'),
+                ('HR002', 'HR2', '8318436133', 'snehil.satyam@nvtpower.com', 'hr'),
+                ('9022246', 'Mr. Sunil', '7419990925', 'sunil.kumar@nvtpower.com', 'hr'),
                 ('9023574', 'Mr. Dipanshu', '9306709009', 'Dipanshu.Dhiman@nvtpower.com', 'hr'),
                 ('9025263', 'Mrs. Priyanka', '9967040263', 'Priyanka.Mehta@nvtpower.com', 'hr'),
                 ('9025432', 'Ms. Yashica', '9138699004', 'yashica.garg@nvtpower.com', 'hr'),
@@ -293,7 +314,9 @@ def init_db():
                 ('reward', '9022246'),
                 ('address_proof', '9022246'),
                 ('id_card', '9025649'),
-                ('income_tax', '9023574')
+                ('income_tax', '9023574'),
+                ('testing1','HR001'),
+                ('testing2','HR002')
             ]
 
             for mapping in grievance_mappings:
@@ -568,12 +591,39 @@ def submit_grievance():
         print(f"   Subject: {subject}")
         print(f"   Description Length: {len(description) if description else 0} characters")
 
-        if not all([emp_code, employee_name,employee_phone, grievance_type, subject, description]):
+        required_fields = [emp_code, employee_name, grievance_type, subject, description]
+        contact_provided = employee_email or employee_phone  # assuming phone_number is your variable
+
+        if not all(required_fields) or not contact_provided:
             print(f"❌ VALIDATION FAILED: Missing required fields")
-            flash('Please fill in all required fields.', 'error')
+            flash('Please fill in all required fields. Either email or phone number must be provided.', 'error')
             return redirect(url_for('index'))
 
         print(f"✅ Form validation passed")
+        print(f"\n🔍 CHECKING FOR PENDING FEEDBACK...")
+        conn = db_pool.getconn()
+        try:
+            with conn.cursor() as c:
+                # Check if user has any resolved queries without feedback
+                c.execute('''
+                    SELECT g.id, g.subject 
+                    FROM grievances g
+                    LEFT JOIN feedback f ON g.id = f.grievance_id
+                    WHERE g.emp_code = %s AND g.status = %s AND f.grievance_id IS NULL
+                ''', (emp_code, 'Resolved'))
+                
+                pending_feedback = c.fetchall()
+                
+                if pending_feedback:
+                    print(f"❌ User {emp_code} has {len(pending_feedback)} resolved queries without feedback")
+                    pending_query_ids = [query[0] for query in pending_feedback]
+                    
+                    flash(f'You have {len(pending_feedback)} resolved queries pending feedback. Please submit feedback for queries: {", ".join(pending_query_ids)} before submitting a new query.', 'error')
+                    return redirect(url_for('index'))
+                
+                print(f"✅ No pending feedback found for user {emp_code}")
+        finally:
+            db_pool.putconn(conn)
 
         attachment_path = None
         if 'attachment' in request.files:
@@ -821,22 +871,24 @@ def respond_grievance(grievance_id):
 
                 employee_email = grievance[3]
                 employee_name = grievance[2]
+                feedback_url = 'http://172.19.66.141:8112/login'
+                print("Final feedback URL:", feedback_url)             
                 response_email_body = f"""
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
     <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
         <p>Dear {employee_name},</p>
-        <p>Your query has been successfully resolved with the following details:</p>
+        <p>Your query has been successfully updated with the following details:</p>
         <div style="background: white; padding: 20px; border-radius: 8px;">
             <p><strong>Reference ID:</strong> {grievance_id}</p>
             <p><strong>Subject:</strong> {grievance[8]}</p>
-            <p><strong>Status:</strong> {new_status} </p>
+            <p><strong>Status:</strong> {new_status}</p>
             <p><strong>Resolution Date:</strong> {response_date.strftime('%d-%m-%Y, %H:%M:%S')}</p>
         </div>
         <p>Please click on the below link to submit the feedback.</p>
         <p>
-            <a href="{url_for('submit_feedback', grievance_id=grievance_id, response='', _external=True)}"
-               style="display:inline-block; background:#1e3a8a; color:#fff; padding:10px 18px; border-radius:5px; text-decoration:none; font-weight:bold;">
+            <a href="{feedback_url}"            
+            style="display:inline-block; background:#1e3a8a; color:#fff; padding:10px 18px; border-radius:5px; text-decoration:none; font-weight:bold;">
                Submit Feedback
             </a>
         </p>
@@ -848,17 +900,32 @@ def respond_grievance(grievance_id):
                 send_email_flask_mail(employee_email, f"Query Response (ID: {grievance_id})", response_email_body, full_path if file and file.filename != '' and allowed_file(file.filename) else None)
                 employee_phone = grievance[4]
                 if employee_phone:
-                    send_whatsapp_template(
-                        to_phone=employee_phone,
-                        template_name="grievance_resolution_confirmation",
-                        lang_code="en",
-                        parameters=[
-                            employee_name,         
-                            grievance_id,      
-                            grievance[8],      
-                            datetime.now().strftime('%d-%m-%Y, %H:%M:%S')  
-                        ]
-                    )
+                    if new_status == 'Resolved':
+                        send_whatsapp_template(
+                            to_phone=employee_phone,
+                            template_name="grievance_resolution_confirmation",
+                            lang_code="en",
+                            parameters=[
+                                employee_name,         
+                                grievance_id,      
+                                grievance[8],
+                                new_status,      
+                                datetime.now().strftime('%d-%m-%Y, %H:%M:%S')  
+                            ]
+                        )
+                    else:
+                        send_whatsapp_template(
+                            to_phone= employee_phone,
+                            template_name = "grievance_in_progress",
+                            lang_code = "en",
+                            parameters=[
+                                employee_name,         
+                                grievance_id,      
+                                grievance[8],
+                                new_status,      
+                                datetime.now().strftime('%d-%m-%Y, %H:%M:%S')  
+                            ]
+                        )
                 flash('Response submitted successfully.', 'success')
                 return redirect(url_for('hr_dashboard'))
 
@@ -1026,79 +1093,96 @@ def test_email():
     except Exception as e:
         return f"<h1>❌ Flask-Mail Test Failed!</h1><p>Error: {str(e)}</p><a href='/'>Back to Form</a>"
 
-def check_pending_grievances():
-    print("\n" + "="*60)
-    print("⏰ CHECKING FOR PENDING GRIEVANCES")
-    print("="*60)
-
-    cutoff_time = datetime.now() - timedelta(minutes=2)
+def check_pending_grievances(debug=True):
+    """
+    Send / re-send reminders for grievances stuck in 'Submitted' beyond thresholds.
+    First reminder: submission_date older than REMINDER_INITIAL_THRESHOLD_HOURS
+    Repeat: last reminder older than REMINDER_REPEAT_EVERY_HOURS (if enabled)
+    """
+    print("\n" + "="*68)
+    print("⏰ OVERDUE QUERY REMINDER SCAN")
+    now = datetime.now()
+    first_cutoff = now - timedelta(hours=REMINDER_INITIAL_THRESHOLD_HOURS)
+    repeat_cutoff = (now - timedelta(hours=REMINDER_REPEAT_EVERY_HOURS)) if REMINDER_REPEAT_EVERY_HOURS else None
+    print(f" Now: {now}")
+    print(f" First reminder if submission_date < {first_cutoff}")
+    if repeat_cutoff:
+        print(f" Repeat reminder if last reminder < {repeat_cutoff}")
+    print("="*68)
 
     conn = db_pool.getconn()
     try:
         with conn.cursor() as c:
-            c.execute("SELECT employee_email, employee_phone FROM users WHERE role = 'admin' LIMIT 1")
-            admin_row = c.fetchone()
-            admin_email = admin_row[0] if admin_row else None
-            admin_phone = admin_row[1] if admin_row else None
+            # Diagnostics
+            c.execute("SELECT COUNT(*) FROM grievances WHERE status='Submitted'")
+            total_submitted = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM grievances WHERE status='Submitted' AND submission_date < %s", (first_cutoff,))
+            total_over_threshold = c.fetchone()[0]
 
-            c.execute('''
-                SELECT g.id, g.employee_name, g.employee_email, g.subject, g.submission_date, m.hr_emp_code, u.employee_email, u.employee_phone
+            # Candidates
+            c.execute("""
+                SELECT g.id, g.employee_name, g.employee_email, g.subject, g.submission_date,
+                       m.hr_emp_code, u.employee_email, u.employee_phone, r.reminder_date
                 FROM grievances g
                 LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
                 LEFT JOIN users u ON m.hr_emp_code = u.emp_code
                 LEFT JOIN reminder_sent r ON g.id = r.grievance_id
-                WHERE g.status = 'Submitted'
-                AND g.submission_date < %s
-                AND r.grievance_id IS NULL
-            ''', (cutoff_time,))
+                WHERE g.status='Submitted'
+                  AND g.submission_date < %s
+                  AND (
+                        r.grievance_id IS NULL
+                        OR (%s IS NOT NULL AND r.reminder_date < %s)
+                      )
+                ORDER BY g.submission_date
+            """, (first_cutoff, repeat_cutoff, repeat_cutoff))
+            rows = c.fetchall()
 
-            pending_grievances = c.fetchall()
+            c.execute("SELECT employee_email, employee_phone FROM users WHERE role='admin' LIMIT 1")
+            admin_row = c.fetchone()
+            admin_email = admin_row[0] if admin_row else None
+            admin_phone = admin_row[1] if admin_row else None
 
-            if not pending_grievances:
-                print(f"✅ No pending grievances requiring attention")
+            if debug:
+                print(f"🧪 Total Submitted: {total_submitted}")
+                print(f"🧪 Submitted over threshold: {total_over_threshold}")
+                print(f"🧪 Due (send / re-send) this scan: {len(rows)}")
+
+            if not rows:
+                print("✅ No reminders required now.")
+                print("="*68)
                 return
 
-            print(f"⚠️ Found {len(pending_grievances)} pending grievances requiring attention")
-
-            for grievance in pending_grievances:
-                grievance_id = grievance[0]
-                employee_name = grievance[1]
-                subject = grievance[3]
-                submission_date = grievance[4]
-                hr_email = grievance[6] or admin_email
-                hr_phone = grievance[7] or admin_phone
-
-                
+            sent = 0
+            for (gid, emp_name, emp_email, subject, sub_dt,
+                 hr_emp_code, hr_email, hr_phone, last_rem) in rows:
+                age_h = int((now - sub_dt).total_seconds() / 3600)
                 hr_name = None
-                if grievance[5]:  
-                    c.execute("SELECT employee_name FROM users WHERE emp_code = %s", (grievance[5],))
-                    hr_name_row = c.fetchone()
-                    hr_name = hr_name_row[0] if hr_name_row else None
+                if hr_emp_code:
+                    c.execute("SELECT employee_name FROM users WHERE emp_code=%s", (hr_emp_code,))
+                    rnm = c.fetchone()
+                    hr_name = rnm[0] if rnm else None
 
-                hours_pending = (datetime.now() - submission_date).total_seconds() / 3600
+                target_email = hr_email or admin_email
+                target_phone = hr_phone or admin_phone
 
-                print(f"📝 Processing grievance {grievance_id}: {subject}")
-                print(f"   Submitted: {submission_date}, Hours pending: {hours_pending:.1f}")
-
-                full_url = f"{SERVER_HOST}/respond/{grievance_id}"
-                if not full_url.startswith(('http://', 'https://')):
+                full_url = f"{SERVER_HOST}/respond/{gid}"
+                if full_url and not full_url.startswith(("http://", "https://")):
                     full_url = f"http://{full_url}"
-
-                email_subject = f"Urgent: Query Pending for over {int(hours_pending)} Hours: Ask HR"
+                email_subject = f"Pending {age_h}h: Query {gid}"
                 email_body = f"""
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
     <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
         <h2 style="color: #1e2a8a;"> 
-            Urgent: Query Pending for over {int(hours_pending)} Hours: Ask HR
+            Urgent: Query Pending for over {age_h} Hours: Ask HR
         </h2>
         <p>This is an automated reminder that the following query has been pending without resolution:</p>
         <p>The query was successfully submitted with the following details:</p>
         <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px;">
-            <p><strong>Query ID:</strong> {grievance_id}</p>
-            <p><strong>Employee Name:</strong> {employee_name}</p>
+            <p><strong>Query ID:</strong> {gid}</p>
+            <p><strong>Employee Name:</strong> {emp_name}</p>
             <p><strong>Subject:</strong> {subject}</p>
-            <p><strong>Submission Date:</strong> {submission_date.strftime('%d-%m-%Y, %H:%M:%S')}</p>
+            <p><strong>Submission Date:</strong> {sub_dt.strftime('%d-%m-%Y %H:%M')}</p>
         </div>
         <p style="margin-top: 20px;">Please review and respond to this query as soon as possible.</p>
         <p><a href="{full_url}"
@@ -1110,50 +1194,206 @@ def check_pending_grievances():
 </body>
 </html>
 """
+                if target_email:
+                    send_email_flask_mail(target_email, email_subject, email_body)
+                if admin_email and admin_email != target_email:
+                    send_email_flask_mail(admin_email, email_subject, email_body)
+                if target_phone:
+                    send_whatsapp_template(
+                        to_phone=target_phone,
+                        template_name="grievance_pending_reminder",
+                        lang_code="en",
+                        parameters=[str(age_h), gid, emp_name, subject]
+                    )
 
-                recipients = [hr_email]
-                if admin_email and admin_email != hr_email:
-                    recipients.append(admin_email)
-                for recipient in recipients:
-                    send_email_flask_mail(recipient, email_subject, email_body)
+                # Upsert reminder
+                if last_rem:
+                    c.execute("UPDATE reminder_sent SET reminder_date=%s WHERE grievance_id=%s", (now, gid))
+                else:
+                    c.execute("INSERT INTO reminder_sent (grievance_id, reminder_date) VALUES (%s,%s)", (gid, now))
+                sent += 1
+
+            conn.commit()
+            print(f"✅ Sent {sent} reminder(s).")
+    except Exception as e:
+        print(f"❌ Error in reminder scan: {e}")
+        print(traceback.format_exc())
+    finally:
+        db_pool.putconn(conn)
+        print("="*68)
+
+def send_daily_hr_pending_summary(debug=True):
+    """
+    Email & WhatsApp daily summary to each active HR at configured hours.
+    Buckets: >=72h, 48-71h, 24-47h, <24h
+    """
+    print("\n" + "="*68)
+    print("📨 DAILY HR PENDING SUMMARY")
+    now = datetime.now()
+    print(f" Timestamp: {now}")
+    print("="*68)
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT emp_code, employee_name, employee_email, employee_phone
+                FROM users
+                WHERE role='hr' AND is_active=TRUE
+            """)
+            hr_rows = c.fetchall()
+            if debug:
+                print(f"HR accounts: {len(hr_rows)}")
+
+            for emp_code, hr_name, hr_email, hr_phone in hr_rows:
+                c.execute("""
+                    SELECT g.id, g.subject, g.employee_name, g.submission_date
+                    FROM grievances g
+                    JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+                    WHERE m.hr_emp_code=%s AND g.status='Submitted'
+                    ORDER BY g.submission_date
+                """, (emp_code,))
+                pending = c.fetchall()
+                total = len(pending)
+                if total == 0:
+                    if debug:
+                        print(f" - {hr_name}: 0 pending")
+                    continue
+
+                b72 = b48 = b24 = 0
+                rows_html = []
+                for gid, subj, emp_name, sub_dt in pending:
+                    age_h = int((now - sub_dt).total_seconds() / 3600)
+                    if age_h >= 72: b72 += 1
+                    elif age_h >= 48: b48 += 1
+                    elif age_h >= 24: b24 += 1
+                    if len(rows_html) < MAX_ITEMS_IN_DAILY_EMAIL:
+                        rows_html.append(
+                            f"<tr><td>{gid}</td><td>{emp_name}</td><td>{subj}</td>"
+                            f"<td>{sub_dt.strftime('%d-%m-%Y %H:%M')}</td><td>{age_h}h</td></tr>"
+                        )
+                under24 = total - b72 - b48 - b24
+
+                if hr_email:
+                    body = f"""
+<html><body style="font-family:Arial,sans-serif">
+<h3>Daily Pending Queries Summary</h3>
+<p>Dear {hr_name},</p>
+<ul>
+<li>Total Pending: <b>{total}</b></li>
+<li>&gt;=72h: <b>{b72}</b></li>
+<li>48-71h: <b>{b48}</b></li>
+<li>24-47h: <b>{b24}</b></li>
+<li>&lt;24h: <b>{under24}</b></li>
+</ul>
+<table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;font-size:12px">
+<thead style="background:#f0f0f0">
+<tr><th>ID</th><th>Employee</th><th>Subject</th><th>Submitted</th><th>Age</th></tr>
+</thead><tbody>
+{''.join(rows_html)}
+</tbody></table>
+{"<p>...and more not listed.</p>" if total > len(rows_html) else ""}
+<p>Human Resources</p>
+</body></html>
+"""
+                    send_email_flask_mail(hr_email, f"Daily Pending Summary ({total}) - Ask HR", body)
 
                 if hr_phone:
                     send_whatsapp_template(
                         to_phone=hr_phone,
-                        template_name="grievance_pending_reminder",
+                        template_name="daily_hr_pending_summary",
                         lang_code="en",
-                        parameters=[
-                            int(hours_pending),
-                            grievance_id,
-                            employee_name,
-                            subject,
-                            datetime.now().strftime('%d-%m-%Y, %H:%M:%S'),
-                        ]
+                        parameters=[hr_name, str(total), str(b72), str(b48), str(b24), str(under24)]
                     )
-                if admin_phone and admin_phone != hr_phone:
-                    send_whatsapp_template(
-                        to_phone=admin_phone,
-                        template_name="grievance_reopened_admin",
-                        lang_code="en",
-                        parameters=[
-                            int(hours_pending),
-                            grievance_id,
-                            employee_name,
-                            hr_name if hr_name else "",
-                            subject,
-                            datetime.now().strftime('%d-%m-%Y, %H:%M:%S'),
-                        ]
-                    )
-                c.execute('INSERT INTO reminder_sent (grievance_id, reminder_date) VALUES (%s, %s)',
-                          (grievance_id, datetime.now()))
-                conn.commit()
-                print(f"✅ Reminder sent for grievance {grievance_id}")
+                if debug:
+                    print(f" - {hr_name}: emailed/WA total={total} >=72h={b72}")
     except Exception as e:
-        print(f"❌ Error checking pending grievances: {str(e)}")
+        print(f"❌ Daily summary error: {e}")
         print(traceback.format_exc())
     finally:
         db_pool.putconn(conn)
-        print("="*60)
+        print("="*68)
+
+def send_pending_feedback_reminders():
+    """
+    Send daily reminders to users whose queries are resolved but feedback is pending
+    """
+    print("\n" + "="*60)
+    print("📋 CHECKING FOR PENDING FEEDBACK REMINDERS")
+    print("="*60)
+    
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as c:
+            # Get resolved grievances with no feedback
+            c.execute('''
+                SELECT g.id, g.emp_code, g.employee_name, g.employee_email, 
+                       g.employee_phone, g.subject, g.updated_at
+                FROM grievances g
+                LEFT JOIN feedback f ON g.id = f.grievance_id
+                WHERE g.status = %s AND f.grievance_id IS NULL
+            ''', ('Resolved',))
+            
+            pending_feedbacks = c.fetchall()
+            
+            if not pending_feedbacks:
+                print("✅ No pending feedback reminders found")
+                return
+            
+            print(f"📝 Found {len(pending_feedbacks)} users with pending feedback")
+            
+            for grievance in pending_feedbacks:
+                grievance_id, emp_code, name, email, phone, subject, resolved_date = grievance
+                
+                print(f"Sending reminder for grievance {grievance_id} to {name}")
+                
+                # Create feedback URL
+                feedback_url = f"{SERVER_HOST}/feedback/{grievance_id}"
+                if not feedback_url.startswith(('http://', 'https://')):
+                    feedback_url = f"http://{feedback_url}"
+                
+                # Email reminder
+                email_subject = f"Reminder: Please Submit Feedback for Resolved Query (ID: {grievance_id})"
+                email_body = f"""
+                <h3>Feedback Reminder</h3>
+                
+                <p>Dear {name},</p>
+                
+                <p>Your query has been resolved and we would appreciate your feedback:</p>
+                
+                <p><strong>Reference ID:</strong> {grievance_id}</p>
+                <p><strong>Subject:</strong> {subject}</p>
+                <p><strong>Status:</strong> Resolved</p>
+                
+                <p>Please click the link below to submit your feedback:</p>
+                <p><a href="{feedback_url}">Submit Feedback</a></p>
+                
+                <p>Your feedback helps us improve our services.</p>
+                
+                <p><strong>Human Resources</strong></p>
+                """
+                
+                # Send email reminder
+                if email:
+                    send_email_flask_mail(email, email_subject, email_body)
+                
+                if phone:
+                    send_whatsapp_template(
+                        to_phone=phone,
+                        template_name="feedback_reminder",
+                        lang_code="en",
+                        parameters=[
+                            name, 
+                            grievance_id, 
+                            subject
+                            ]
+                    )
+                
+                print(f"✅ Reminder sent to {name} ({email}, {phone})")
+    
+    except Exception as e:
+        print(f"❌ Error sending feedback reminders: {str(e)}")
+    finally:
+        db_pool.putconn(conn)
 
 def generate_otp():
     """Generate a 6-digit OTP"""
@@ -1449,7 +1689,10 @@ def hr_dashboard():
             ''', (emp_code,))
 
             assigned_types = [row[0] for row in c.fetchall()]
-
+            
+            c.execute("SELECT emp_code, employee_name FROM users WHERE role = 'hr' ORDER BY employee_name")
+            hr_staff = c.fetchall()
+            
             c.execute('''
                 SELECT
                     SUM(CASE WHEN status = 'Submitted' THEN 1 ELSE 0 END) as submitted,
@@ -1483,7 +1726,8 @@ def hr_dashboard():
                                       filter_args=filter_args,
                                       max=max,
                                       min=min,
-                                      stats=stats)
+                                      stats=stats,
+                                      hr_staff=hr_staff)
 
             query = '''SELECT g.id, g.emp_code, g.employee_name, g.employee_email, g.grievance_type,
                         g.subject, g.status, g.submission_date, g.attachment_path,
@@ -1559,7 +1803,8 @@ def hr_dashboard():
                                   filter_args=filter_args,
                                   max=max,
                                   min=min,
-                                  stats=stats)
+                                  stats=stats,
+                                  hr_staff=hr_staff)
     finally:
         db_pool.putconn(conn)
 
@@ -1805,6 +2050,106 @@ def master_dashboard():
                                  date_to=date_to,
                                  max=max,
                                  min=min)
+    finally:
+        db_pool.putconn(conn)
+
+@app.route('/reply-grievance/<grievance_id>', methods=['GET', 'POST'])
+def reply_grievance(grievance_id):
+    user = session.get('user')
+    if not user or not user.get('authenticated') or user.get('role') != 'employee':
+        flash('Unauthorized.', 'error')
+        return redirect(url_for('login'))
+
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as c:
+            c.execute("""SELECT id, emp_code, employee_name, employee_email,
+                                employee_phone, grievance_type, subject, status,
+                                reply_count
+                         FROM grievances WHERE id=%s AND emp_code=%s""",
+                      (grievance_id, user['emp_code']))
+            gr = c.fetchone()
+            if not gr:
+                flash('Query not found.', 'error')
+                return redirect(url_for('my_queries'))
+
+            status = gr[7]
+            reply_count = gr[8] if gr[8] is not None else 0
+            if status == 'Resolved':
+                flash('Cannot reply to a resolved query.', 'error')
+                return redirect(url_for('my_queries'))
+            if reply_count >= 2:
+                flash('You have reached the maximum of 2 replies.', 'error')
+                return redirect(url_for('my_queries'))
+
+            if request.method == 'POST':
+                reply_text = request.form.get('reply_text', '').strip()
+                if not reply_text or len(reply_text) < 10:
+                    flash('Reply must be at least 10 characters.', 'error')
+                    return redirect(url_for('reply_grievance', grievance_id=grievance_id))
+
+                attachment_path = None
+                if 'attachment' in request.files:
+                    file = request.files['attachment']
+                    if file and file.filename != '' and allowed_file(file.filename):
+                        upload_dir = get_upload_path('employee', user['emp_code'])
+                        fname = secure_filename(f"reply_{grievance_id}_{reply_count+1}_{file.filename}")
+                        full_path = os.path.join(upload_dir, fname)
+                        file.save(full_path)
+                        attachment_path = fname
+
+                # Insert reply as a response row (responder = employee)
+                c.execute("""INSERT INTO responses
+                            (grievance_id, responder_email, responder_name, response_text, response_date, attachment_path)
+                            VALUES (%s,%s,%s,%s,%s,%s)""",
+                          (grievance_id, gr[3], gr[2], reply_text, datetime.now(), attachment_path))
+                c.execute("UPDATE grievances SET reply_count = reply_count + 1, updated_at=%s WHERE id=%s",
+                          (datetime.now(), grievance_id))
+
+                # Notify assigned HR
+                c.execute("""SELECT u.employee_email, u.employee_name, u.employee_phone
+                             FROM hr_grievance_mapping m
+                             JOIN users u ON m.hr_emp_code = u.emp_code
+                             WHERE m.grievance_type = %s""", (gr[5],))
+                hr_info = c.fetchone()
+                if hr_info:
+                    hr_email, hr_name, hr_phone = hr_info
+                    subj = f"Employee Reply Received - {gr[6]} (ID: {grievance_id})"
+                    body = f"""
+<html><body style="font-family:Arial,sans-serif">
+<p>Dear {hr_name},</p>
+<p>The employee has added a reply to the query requiring your attention:</p>
+<ul>
+<li><b>ID:</b> {grievance_id}</li>
+<li><b>Subject:</b> {gr[6]}</li>
+<li><b>Reply Count:</b> {reply_count+1}/2</li>
+<li><b>Status:</b> {status}</li>
+</ul>
+<p><b>Reply Text:</b><br>{reply_text}</p>
+<p>Please respond in the portal.</p>
+<p>Human Resources</p>
+</body></html>
+"""
+                    if hr_email:
+                        send_email_flask_mail(hr_email, subj, body)
+                    if hr_phone:
+                        send_whatsapp_template(
+                            to_phone=hr_phone,
+                            template_name="employee_reply_hr_notify",
+                            lang_code="en",
+                            parameters=[hr_name, grievance_id, gr[2], gr[6], str(reply_count+1)]
+                        )
+                conn.commit()
+                flash('Reply submitted.', 'success')
+                return redirect(url_for('my_queries'))
+
+            # GET
+            return render_template('reply_grievance.html',
+                                   grievance_id=grievance_id,
+                                   subject=gr[6],
+                                   status=status,
+                                   reply_count=reply_count,
+                                   max_replies=2)
     finally:
         db_pool.putconn(conn)
 
@@ -2272,10 +2617,35 @@ def manage_hr_mappings():
     finally:
         db_pool.putconn(conn)
 
+@app.route('/get_current_hr/<grievance_id>')
+def get_current_hr(grievance_id):
+    user = session.get('user')
+    if not user or not user.get('authenticated') or user.get('role') not in ['admin', 'hr']:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as c:
+            c.execute('''
+                SELECT m.hr_emp_code
+                FROM grievances g
+                JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+                WHERE g.id = %s
+            ''', (grievance_id,))
+            result = c.fetchone()
+            
+            if result:
+                return jsonify({'success': True, 'current_hr': result[0]})
+            return jsonify({'success': False, 'error': 'No HR mapping found'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        db_pool.putconn(conn)
+
 @app.route('/reassign-grievance', methods=['POST'])
 def reassign_grievance():
     user = session.get('user')
-    if not user or not user.get('authenticated') or user.get('role') != 'admin':
+    if not user or not user.get('authenticated') or user.get('role') not in ['admin','hr']:
         flash('You do not have permission to forward the query', 'error')
         return redirect(url_for('login'))
 
@@ -2286,7 +2656,10 @@ def reassign_grievance():
 
     if not all([grievance_id, new_hr_emp_code, reason]):
         flash('Missing required information for the change', 'error')
-        return redirect(url_for('master_dashboard'))
+        if user.get('role') == 'admin':
+            return redirect(url_for('master_dashboard'))
+        else:
+            return redirect(url_for('hr_dashboard'))
 
     conn = db_pool.getconn()
     try:
@@ -2303,14 +2676,20 @@ def reassign_grievance():
             grievance = c.fetchone()
             if not grievance:
                 flash('Query not found', 'error')
-                return redirect(url_for('master_dashboard'))
+                if user.get('role') == 'admin':
+                    return redirect(url_for('master_dashboard'))
+                else:
+                    return redirect(url_for('hr_dashboard'))
 
             
             c.execute('SELECT employee_name, employee_email, employee_phone FROM users WHERE emp_code = %s', (new_hr_emp_code,))
             new_hr = c.fetchone()
             if not new_hr:
                 flash('Selected HR staff not found', 'error')
-                return redirect(url_for('master_dashboard'))
+                if user.get('role') == 'admin':
+                    return redirect(url_for('master_dashboard'))
+                else:
+                    return redirect(url_for('hr_dashboard'))
 
             
             c.execute('''
@@ -2350,6 +2729,7 @@ def reassign_grievance():
                     <p>A query has been <b>forwarded</b> to you by {user.get('employee_name')}:</p>
                     <div style="background: white; padding: 20px; border-radius: 8px;">
                         <p><strong>Query ID:</strong> {grievance_id}</p>
+                        <p><strong>Query Type:</strong> {grievance[2]}</p>
                         <p><strong>Employee:</strong> {grievance[1]}</p>
                         <p><strong>Subject:</strong> {grievance[3]}</p>
                         <p><strong>Reason for change:</strong> {reason}</p>
@@ -2407,14 +2787,20 @@ def reassign_grievance():
                 send_email_flask_mail(grievance[5], prev_notify_subject, prev_notify_body)
 
             flash(f'Query successfully forwarded to {new_hr[0]}', 'success')
-            return redirect(url_for('master_dashboard'))
+            if user.get('role') == 'admin':
+                return redirect(url_for('master_dashboard'))
+            else:
+                return redirect(url_for('hr_dashboard'))
 
     except Exception as e:
         conn.rollback()
         print(f"Error in reassigning grievance: {str(e)}")
         print(traceback.format_exc())
         flash(f'Error reassigning grievance: {str(e)}', 'error')
-        return redirect(url_for('master_dashboard'))
+        if user.get('role') == 'admin':
+            return redirect(url_for('master_dashboard'))
+        else:
+            return redirect(url_for('hr_dashboard'))
     finally:
         db_pool.putconn(conn)
 
@@ -2501,7 +2887,7 @@ def get_employee_sap():
         return jsonify({'success': False, 'error': 'No employee code provided'}), 400
 
     try:
-        url = f"https://api44.sapsf.com/odata/v2/EmpJob?$select=division,divisionNav/name,location,locationNav/name,userId,employmentNav/personNav/personalInfoNav/firstName,employmentNav/personNav/personalInfoNav/middleName,employmentNav/personNav/personalInfoNav/lastName,department,departmentNav/name,employmentNav/personNav/emailNav/emailAddress,employmentNav/personNav/phoneNav/phoneNumber,employmentNav/personNav/dateOfBirth&$expand=employmentNav/personNav/personalInfoNav,divisionNav,locationNav,departmentNav,employmentNav/personNav/phoneNav,employmentNav/personNav/emailNav&$filter=userId eq '{emp_code}'&$format=json"
+        url = f"https://api44.sapsf.com/odata/v2/EmpJob?$select=division,divisionNav/name,location,locationNav/name,userId,employmentNav/personNav/personalInfoNav/firstName,employmentNav/personNav/personalInfoNav/middleName,employmentNav/personNav/personalInfoNav/lastName,department,departmentNav/name,employmentNav/personNav/emailNav/emailAddress,employmentNav/personNav/phoneNav/phoneNumber,employmentNav/personNav/dateOfBirth,emplStatusNav/picklistLabels/label&$expand=employmentNav/personNav/personalInfoNav,divisionNav,locationNav,departmentNav,employmentNav/personNav/phoneNav,employmentNav/personNav/emailNav,emplStatusNav/picklistLabels&$filter=userId eq '{emp_code}'&$format=json"
 
         print(f"🔗 Using API URL: {url}")
 
@@ -2554,7 +2940,19 @@ def get_employee_sap():
                 if data is None:
                     return None
             return data
+                # Check Employee Status
+        print(f"🔍 CHECKING EMPLOYEE STATUS:")
+        employee_status = safe_get(result, 'emplStatusNav', 'picklistLabels', 'results', 0, 'label')
+        print(f"  Employee Status: {employee_status}")
 
+        if not employee_status or employee_status.lower() != 'active':
+            print(f"❌ Employee {emp_code} is not active. Status: {employee_status}")
+            return jsonify({
+                'success': False,
+                'error': f'Employee {emp_code} is not active. Current status: {employee_status or "Unknown"}. Only active employees can submit queries.'
+            }), 403
+
+        print(f"✅ Employee {emp_code} is active, proceeding with data extraction...")
         personal_info = safe_get(result, 'employmentNav', 'personNav', 'personalInfoNav', 'results', 0)
         first_name = safe_get(personal_info, 'firstName') or ''
         middle_name = safe_get(personal_info, 'middleName') or ''
@@ -2707,18 +3105,53 @@ def download_file(user_type, emp_code, filename):
 
 if __name__ == '__main__':
     init_db()
-    def run_check_with_app_context():
+    # Immediate runs wrapper
+    def run_overdue_scan():
         with app.app_context():
-            check_pending_grievances()
+            check_pending_grievances(debug=True)
 
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(
-        func=run_check_with_app_context,
-        trigger=IntervalTrigger(hours=72),
-        id='check_pending_grievances',
-        name='Check for grievances pending for over 72 hours',
-        replace_existing=True
+    def run_daily_summary():
+        with app.app_context():
+            send_daily_hr_pending_summary(debug=True)
+
+    # Overdue scan scheduler (hourly)
+    scheduler_overdue = BackgroundScheduler()
+    scheduler_overdue.add_job(
+        func=run_overdue_scan,
+        trigger=IntervalTrigger(hours=REMINDER_SCAN_INTERVAL_HOURS),
+        id='overdue_scan',
+        replace_existing=True,
+        next_run_time=datetime.now()  # immediate
     )
-    scheduler.start()
-    print("📅 Scheduler started - will check for pending grievances every 72 hours")
-    app.run(debug=True)
+    scheduler_overdue.start()
+    print("📅 Overdue reminder scheduler (hourly + immediate) started")
+
+    # Daily HR summary (09:00 & 16:00)
+    scheduler_daily = BackgroundScheduler()
+    scheduler_daily.add_job(
+        func=run_daily_summary,
+        trigger=CronTrigger(hour="9,16", minute=0),
+        id='daily_hr_summary',
+        replace_existing=True,
+        next_run_time=datetime.now()  # first immediate for verification
+    )
+    scheduler_daily.start()
+    print("📅 Daily HR summary scheduler (09:00 & 16:00 + immediate) started")
+
+    # Existing feedback reminders (daily at startup time)
+    scheduler_feedback = BackgroundScheduler()
+    scheduler_feedback.add_job(
+        func=lambda: send_pending_feedback_reminders(),
+        trigger=IntervalTrigger(days=1),
+        id='feedback_reminders',
+        replace_existing=True,
+        next_run_time=datetime.now()
+    )
+    scheduler_feedback.start()
+    print("📅 Feedback reminder scheduler (daily + immediate) started")
+
+    # Defensive immediate executions
+    run_overdue_scan()
+    run_daily_summary()
+
+    app.run(debug=True, use_reloader=False)

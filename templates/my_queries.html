@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Queries - Employee Dashboard</title>
     <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <style>
         * {
             margin: 0;
@@ -593,7 +595,8 @@
                         <p>{{ response.response_text|nl2br }}</p>
                         {% if response.attachment_path %}
                             <p><strong>HR Attachment:</strong> 
-                            <a href="{{ url_for('download_file', user_type='hr', emp_code=response.hr_emp_code, filename=response.attachment_path) }}" target="_blank">                                View HR Attachment
+                            <a href="{{ url_for('download_file', user_type='hr', emp_code=response.hr_emp_code, filename=response.attachment_path) }}" target="_blank">                                
+                                View HR Attachment
                             </a>
                             </p>
                         {% endif %}

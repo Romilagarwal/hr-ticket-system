@@ -1,0 +1,67 @@
+{
+  "metadata": {
+    "last_updated": "2025-07-30 10:30:00",
+    "update_status": "success",
+    "total_days": 7,
+    "next_update": "2025-07-31 06:00:00",
+    "processing_time_seconds": 306.173163
+  },
+  "data": [
+    {
+      "Date": "23-Jul-2025",
+      "Plan_Qty": 329008,
+      "Production_Qty": 307540,
+      "Achievement_Pct": 93.47,
+      "file_found": true,
+      "data_source": "excel_file"
+    },
+    {
+      "Date": "24-Jul-2025",
+      "Plan_Qty": 347804,
+      "Production_Qty": 331410,
+      "Achievement_Pct": 95.3,
+      "file_found": true,
+      "data_source": "excel_file"
+    },
+    {
+      "Date": "25-Jul-2025",
+      "Plan_Qty": 323225,
+      "Production_Qty": 281223,
+      "Achievement_Pct": 87.01,
+      "file_found": true,
+      "data_source": "excel_file"
+    },
+    {
+      "Date": "26-Jul-2025",
+      "Plan_Qty": 327859,
+      "Production_Qty": 313677,
+      "Achievement_Pct": 95.67,
+      "file_found": true,
+      "data_source": "excel_file"
+    },
+    {
+      "Date": "27-Jul-2025",
+      "Plan_Qty": 0,
+      "Production_Qty": 111946,
+      "Achievement_Pct": 0,
+      "file_found": false,
+      "data_source": "no_file"
+    },
+    {
+      "Date": "28-Jul-2025",
+      "Plan_Qty": 346413,
+      "Production_Qty": 328240,
+      "Achievement_Pct": 94.75,
+      "file_found": true,
+      "data_source": "excel_file"
+    },
+    {
+      "Date": "29-Jul-2025",
+      "Plan_Qty": 346485,
+      "Production_Qty": 327268,
+      "Achievement_Pct": 94.45,
+      "file_found": true,
+      "data_source": "excel_file"
+    }
+  ]
+}

@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HR Dashboard - ASK HR</title>
     <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <style>
         * {
             margin: 0;
@@ -85,6 +87,10 @@
         .user-info {
             display: flex;
             flex-direction: column;
+        }
+        
+        .action-reassign { 
+            background: #9b59b6; 
         }
 
         .user-info h3 {
@@ -643,6 +649,10 @@
                                 <a href="{{ url_for('respond_grievance', grievance_id=grievance.id) }}" class="action-btn action-respond">
                                     <i class="fas fa-reply"></i> Respond
                                 </a>
+                                        <!-- Add this new Forward button -->
+                                <button type="button" class="action-btn action-reassign" onclick="openReassignModal('{{ grievance.id }}', '{{ grievance.grievance_type }}')">
+                                    <i class="fas fa-exchange-alt"></i> Forward
+                                </button>
                             {% else %}
                                 <span class="action-btn action-completed" title="This query has been resolved">
                                     <i class="fas fa-check-circle"></i> Resolved
@@ -650,9 +660,9 @@
                             {% endif %}
 
                             {% if grievance.attachment_path %}
-                                <a href="{{ url_for('download_file', user_type='employee', emp_code=grievance.emp_code, filename=grievance.attachment_path) }}" target="_blank" class="action-btn" style="background-color: #1abc9c;" title="Download Employee Attachment">
+                            <a href="{{ url_for('download_file', user_type='employee', emp_code=grievance.emp_code, filename=grievance.attachment_path) }}" target="_blank" class="action-btn" style="background-color: #1abc9c;" title="Download Employee Attachment">
                                 <i class="fas fa-paperclip"></i> Attachment
-                                </a>
+                            </a>
                             {% endif %}
                             
                             {% if grievance.status == 'Reopened' %}
@@ -707,6 +717,38 @@
             <button onclick="document.getElementById('feedbackModal').style.display='none'" style="margin-top:20px;" class="btn btn-primary">Close</button>
         </div>
     </div>
+
+    <!-- Reassign Modal -->
+    <div id="reassignModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); width: 90%; max-width: 500px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="font-size: 1.5rem; color: #2c5aa0;">Forward Query</h3>
+                <span onclick="document.getElementById('reassignModal').style.display='none'" style="font-size: 1.5rem; cursor: pointer; color: #aaa;">&times;</span>
+            </div>
+            <form id="reassignForm" method="POST" action="{{ url_for('reassign_grievance') }}">
+                <input type="hidden" id="grievance_id" name="grievance_id">
+                <input type="hidden" id="current_type" name="current_type">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c5aa0;">Assign to HR Staff:</label>
+                    <select id="new_hr" name="new_hr" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;" required>
+                        <option value="">Select HR Staff</option>
+                        {% for emp_code, name in hr_staff %}
+                            <option value="{{ emp_code }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c5aa0;">Reason for change:</label>
+                    <textarea id="reason" name="reason" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;" placeholder="Please provide a reason for the reassignment" required></textarea>
+                </div>
+                <div style="text-align: right; margin-top: 20px;">
+                    <button type="button" style="background: #ccc; margin-right: 10px; padding: 10px 20px; border: none; border-radius: 8px;" onclick="document.getElementById('reassignModal').style.display='none'">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Forward</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
     function showFeedback(id, rating, comments) {
         const ratingEmojis = {
@@ -732,6 +774,36 @@
         
         document.getElementById('modalComments').innerText = comments || 'No additional comments provided';
         document.getElementById('feedbackModal').style.display = 'flex';
+    }
+
+    function openReassignModal(grievanceId, currentType) {
+        document.getElementById('grievance_id').value = grievanceId;
+        document.getElementById('current_type').value = currentType;
+        document.getElementById('reassignModal').style.display = 'flex';
+
+        // Load current HR for the grievance
+        fetch(`/get_current_hr/${grievanceId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('new_hr').value = data.current_hr;
+                } else {
+                    console.error('Error fetching current HR:', data.error);
+                }
+            })
+            .catch(error => console.error('Error fetching current HR:', error));
+    }
+
+    // Close modals when clicking outside of them
+    window.onclick = function(event) {
+        const feedbackModal = document.getElementById('feedbackModal');
+        const reassignModal = document.getElementById('reassignModal');
+        if (event.target == feedbackModal) {
+            feedbackModal.style.display = "none";
+        }
+        if (event.target == reassignModal) {
+            reassignModal.style.display = "none";
+        }
     }
     </script>
 </body>

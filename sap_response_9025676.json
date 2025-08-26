@@ -1,0 +1,495 @@
+{
+    "d": {
+        "results": [
+            {
+                "__metadata": {
+                    "uri": "https://api44.sapsf.com/odata/v2/EmpJob(seqNumber=1L,startDate=datetime'2025-06-06T00:00:00',userId='9025676')",
+                    "type": "SFOData.EmpJob"
+                },
+                "seqNumber": "1",
+                "userId": "9025676",
+                "startDate": "/Date(1749168000000)/",
+                "employmentType": "44159",
+                "managerId": "9025802",
+                "customString6": "941046",
+                "division": "D0005",
+                "location": "MN",
+                "department": "DP0029",
+                "emplStatusNav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(6683L)",
+                        "type": "SFOData.PicklistOption"
+                    },
+                    "picklistLabels": {
+                        "results": [
+                            {
+                                "__metadata": {
+                                    "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_DEBUG',optionId=6683L)",
+                                    "type": "SFOData.PicklistLabel"
+                                },
+                                "label": "Active"
+                            },
+                            {
+                                "__metadata": {
+                                    "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_US',optionId=6683L)",
+                                    "type": "SFOData.PicklistLabel"
+                                },
+                                "label": "Active"
+                            },
+                            {
+                                "__metadata": {
+                                    "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_GB',optionId=6683L)",
+                                    "type": "SFOData.PicklistLabel"
+                                },
+                                "label": "Active"
+                            }
+                        ]
+                    }
+                },
+                "employmentTypeNav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(44159L)",
+                        "type": "SFOData.PicklistOption"
+                    },
+                    "id": "44159",
+                    "externalCode": "C",
+                    "localeLabel": "Confirmation"
+                },
+                "locationNav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/FOLocation(externalCode='MN',startDate=datetime'2021-02-02T00:00:00')",
+                        "type": "SFOData.FOLocation"
+                    },
+                    "name": "Manesar"
+                },
+                "employmentNav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/EmpEmployment(personIdExternal='9025676',userId='9025676')",
+                        "type": "SFOData.EmpEmployment"
+                    },
+                    "customString18": null,
+                    "endDate": null,
+                    "startDate": "/Date(1717372800000)/",
+                    "customDate6": null,
+                    "personNav": {
+                        "__metadata": {
+                            "uri": "https://api44.sapsf.com/odata/v2/PerPerson('9025676')",
+                            "type": "SFOData.PerPerson"
+                        },
+                        "countryOfBirth": "IND",
+                        "dateOfBirth": "/Date(1036886400000)/",
+                        "personalInfoNav": {
+                            "results": [
+                                {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/PerPersonal(personIdExternal='9025676',startDate=datetime'2024-06-03T00:00:00')",
+                                        "type": "SFOData.PerPersonal"
+                                    },
+                                    "firstName": "Snehil",
+                                    "lastName": "Satyam",
+                                    "gender": "M",
+                                    "customString5": "Subhash Chandra Pandit",
+                                    "customString10": "Indulge myself in outdoor games , bike rides and Get into research in AI / ML",
+                                    "middleName": null,
+                                    "customString11": "B.Tech",
+                                    "customString9": "Veersa Technologies",
+                                    "customString8": "8 Months",
+                                    "maritalStatusNav": {
+                                        "__metadata": {
+                                            "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(45459L)",
+                                            "type": "SFOData.PicklistOption"
+                                        },
+                                        "picklistLabels": {
+                                            "results": [
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_GB',optionId=45459L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Bachelor"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_DEBUG',optionId=45459L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Bachelor"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_US',optionId=45459L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Bachelor"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "phoneNav": {
+                            "results": [
+                                {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/PerPhone(personIdExternal='9025676',phoneType='31721')",
+                                        "type": "SFOData.PerPhone"
+                                    },
+                                    "phoneNumber": "7749859457",
+                                    "phoneTypeNav": {
+                                        "__metadata": {
+                                            "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(31721L)",
+                                            "type": "SFOData.PicklistOption"
+                                        },
+                                        "picklistLabels": {
+                                            "results": [
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_US',optionId=31721L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Mobile"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_DEBUG',optionId=31721L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Cell"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_GB',optionId=31721L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Mobile"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/PerPhone(personIdExternal='9025676',phoneType='941802')",
+                                        "type": "SFOData.PerPhone"
+                                    },
+                                    "phoneNumber": "7749859457",
+                                    "phoneTypeNav": {
+                                        "__metadata": {
+                                            "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(941802L)",
+                                            "type": "SFOData.PicklistOption"
+                                        },
+                                        "picklistLabels": {
+                                            "results": [
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_GB',optionId=941802L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "WhatsApp Number"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_DEBUG',optionId=941802L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "WhatsApp Number"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_US',optionId=941802L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "WhatsApp Number"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "emailNav": {
+                            "results": [
+                                {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/PerEmail(emailType='18418',personIdExternal='9025676')",
+                                        "type": "SFOData.PerEmail"
+                                    },
+                                    "emailAddress": "snehil1234satyam@gmail.com",
+                                    "isPrimary": false,
+                                    "emailTypeNav": {
+                                        "__metadata": {
+                                            "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(18418L)",
+                                            "type": "SFOData.PicklistOption"
+                                        },
+                                        "picklistLabels": {
+                                            "results": [
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_GB',optionId=18418L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Personal"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_US',optionId=18418L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Personal"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_DEBUG',optionId=18418L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Personal"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/PerEmail(emailType='18416',personIdExternal='9025676')",
+                                        "type": "SFOData.PerEmail"
+                                    },
+                                    "emailAddress": "Snehil.Satyam@nvtpower.com",
+                                    "isPrimary": true,
+                                    "emailTypeNav": {
+                                        "__metadata": {
+                                            "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(18416L)",
+                                            "type": "SFOData.PicklistOption"
+                                        },
+                                        "picklistLabels": {
+                                            "results": [
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_DEBUG',optionId=18416L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Business"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_GB',optionId=18416L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Business"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_US',optionId=18416L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Business"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "homeAddressNavDEFLT": {
+                            "results": [
+                                {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/PerAddressDEFLT(addressType='home',personIdExternal='9025676',startDate=datetime'2024-06-03T00:00:00')",
+                                        "type": "SFOData.PerAddressDEFLT"
+                                    },
+                                    "addressType": "home",
+                                    "address10": null,
+                                    "address12": null,
+                                    "address1": "B-10 , TSLPL Township , Biliepada",
+                                    "address14": null,
+                                    "stateNav": {
+                                        "__metadata": {
+                                            "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(44113L)",
+                                            "type": "SFOData.PicklistOption"
+                                        },
+                                        "picklistLabels": {
+                                            "results": [
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_GB',optionId=44113L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Odisha"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_US',optionId=44113L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Odisha"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_DEBUG',optionId=44113L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Odisha"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "cityNav": {
+                                        "__metadata": {
+                                            "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(43961L)",
+                                            "type": "SFOData.PicklistOption"
+                                        },
+                                        "picklistLabels": {
+                                            "results": [
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_DEBUG',optionId=43961L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Keonjhar"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_GB',optionId=43961L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Keonjhar"
+                                                },
+                                                {
+                                                    "__metadata": {
+                                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistLabel(locale='en_US',optionId=43961L)",
+                                                        "type": "SFOData.PicklistLabel"
+                                                    },
+                                                    "label": "Keonjhar"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "countyNav": null
+                                }
+                            ]
+                        }
+                    },
+                    "empJobRelationshipNav": {
+                        "results": [
+                            {
+                                "__metadata": {
+                                    "uri": "https://api44.sapsf.com/odata/v2/EmpJobRelationships(relationshipType='6480',startDate=datetime'2025-01-18T00:00:00',userId='9025676')",
+                                    "type": "SFOData.EmpJobRelationships"
+                                },
+                                "relUserId": "9023422",
+                                "relUserNav": {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/User('9023422')",
+                                        "type": "SFOData.User"
+                                    },
+                                    "defaultFullName": "Mohit Agarwal"
+                                },
+                                "relationshipTypeNav": {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(6480L)",
+                                        "type": "SFOData.PicklistOption"
+                                    },
+                                    "externalCode": "custom manager"
+                                }
+                            },
+                            {
+                                "__metadata": {
+                                    "uri": "https://api44.sapsf.com/odata/v2/EmpJobRelationships(relationshipType='6482',startDate=datetime'2025-01-18T00:00:00',userId='9025676')",
+                                    "type": "SFOData.EmpJobRelationships"
+                                },
+                                "relUserId": "9025263",
+                                "relUserNav": {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/User('9025263')",
+                                        "type": "SFOData.User"
+                                    },
+                                    "defaultFullName": "Priyanka Mehta"
+                                },
+                                "relationshipTypeNav": {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(6482L)",
+                                        "type": "SFOData.PicklistOption"
+                                    },
+                                    "externalCode": "hr manager"
+                                }
+                            },
+                            {
+                                "__metadata": {
+                                    "uri": "https://api44.sapsf.com/odata/v2/EmpJobRelationships(relationshipType='6485',startDate=datetime'2025-01-18T00:00:00',userId='9025676')",
+                                    "type": "SFOData.EmpJobRelationships"
+                                },
+                                "relUserId": "9017113",
+                                "relUserNav": {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/User('9017113')",
+                                        "type": "SFOData.User"
+                                    },
+                                    "defaultFullName": "Tribhuvan Agnihotri"
+                                },
+                                "relationshipTypeNav": {
+                                    "__metadata": {
+                                        "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(6485L)",
+                                        "type": "SFOData.PicklistOption"
+                                    },
+                                    "externalCode": "second manager"
+                                }
+                            }
+                        ]
+                    }
+                },
+                "divisionNav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/FODivision(externalCode='D0005',startDate=datetime'1900-01-01T00:00:00')",
+                        "type": "SFOData.FODivision"
+                    },
+                    "name": "Common Function"
+                },
+                "eventReasonNav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/FOEventReason(externalCode='73',startDate=datetime'1900-01-01T00:00:00')",
+                        "type": "SFOData.FOEventReason"
+                    },
+                    "externalCode": "73",
+                    "name": "Data Change"
+                },
+                "customString6Nav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/PicklistOption(941046L)",
+                        "type": "SFOData.PicklistOption"
+                    },
+                    "id": "941046",
+                    "externalCode": "IDL",
+                    "localeLabel": "IDL"
+                },
+                "customString10Nav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/cust_Designation(effectiveStartDate=datetime'1990-01-01T00:00:00',externalCode='DES0002')",
+                        "type": "SFOData.cust_Designation"
+                    },
+                    "externalName": "Engineer"
+                },
+                "departmentNav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/FODepartment(externalCode='DP0029',startDate=datetime'1900-01-01T00:00:00')",
+                        "type": "SFOData.FODepartment"
+                    },
+                    "name": "Center of Excellence"
+                },
+                "managerUserNav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/User('9025802')",
+                        "type": "SFOData.User"
+                    },
+                    "defaultFullName": "Shivam Chaturvedi"
+                },
+                "payGradeNav": {
+                    "__metadata": {
+                        "uri": "https://api44.sapsf.com/odata/v2/FOPayGrade(externalCode='JB11',startDate=datetime'1900-01-01T00:00:00')",
+                        "type": "SFOData.FOPayGrade"
+                    },
+                    "name": "JB11"
+                }
+            }
+        ]
+    }
+}
