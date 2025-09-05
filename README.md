@@ -54,8 +54,8 @@ A comprehensive HR Ticket Management System designed to streamline employee requ
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/hr-ticket-system.git
-   cd hr-ticket-system
+   git clone https://github.com/romilagarwal/hr-ticket-system.git
+   cd hr_ticket_system
    ```
 
 2. **Create a virtual environment**
@@ -183,13 +183,6 @@ Comprehensive analytics dashboard provides:
 - Custom report generation with export functionality
 
 ## 📚 API Documentation
-
-### Internal APIs
-
-- `/api/tickets` - Ticket management endpoints
-- `/api/employees` - Employee data endpoints
-- `/api/reports` - Reporting and analytics endpoints
-- `/api/notifications` - Notification management endpoints
 
 ### External Integrations
 
