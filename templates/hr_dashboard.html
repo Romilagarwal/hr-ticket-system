@@ -381,7 +381,27 @@
             font-weight: 600;
             transition: all 0.3s ease;
         }
+        .hr-response {  
+            background-color: #f0f7ff;
+        }
 
+        .employee-response {
+            background-color: #f0fff7;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            color: #e74c3c;
+            padding: 15px;
+            text-align: center;
+            background: #fdf3f2;
+            border-radius: 8px;
+        }
         .pagination a:hover {
             background: #2c5aa0;
             color: white;
@@ -658,7 +678,9 @@
                                     <i class="fas fa-check-circle"></i> Resolved
                                 </span>
                             {% endif %}
-
+                            <button type="button" class="action-btn action-view" onclick="openDetailsModal('{{ grievance.id }}')">
+                                <i class="fas fa-eye"></i> Details
+                            </button>
                             {% if grievance.attachment_path %}
                             <a href="{{ url_for('download_file', user_type='employee', emp_code=grievance.emp_code, filename=grievance.attachment_path) }}" target="_blank" class="action-btn" style="background-color: #1abc9c;" title="Download Employee Attachment">
                                 <i class="fas fa-paperclip"></i> Attachment
@@ -706,7 +728,21 @@
             </div>
         {% endif %}
     </div>
-
+    
+    <div id="detailsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); z-index: 9999; align-items: center; justify-content: center; overflow-y: auto;">
+    <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); width: 90%; max-width: 700px; max-height: 85vh; overflow-y: auto; margin: 20px auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="font-size: 1.5rem; color: #2c5aa0;" id="detailsTitle">Query Details</h3>
+            <span onclick="document.getElementById('detailsModal').style.display='none'" style="font-size: 1.5rem; cursor: pointer; color: #aaa;">&times;</span>
+        </div>
+        <div id="detailsContent" style="margin-bottom: 20px;">
+            <div class="loading-spinner">Loading...</div>
+        </div>
+        <div style="text-align: right;">
+            <button class="btn btn-primary" onclick="document.getElementById('detailsModal').style.display='none'">Close</button>
+        </div>
+    </div>
+    </div>
     <!-- Feedback Modal -->
     <div id="feedbackModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4); z-index:9999; align-items:center; justify-content:center;">
         <div style="background:white; padding:30px; border-radius:12px; max-width:400px; margin:auto; position:relative;">
@@ -794,15 +830,152 @@
             .catch(error => console.error('Error fetching current HR:', error));
     }
 
+    function openDetailsModal(grievanceId) {
+        document.getElementById('detailsTitle').textContent = `Query Details #${grievanceId}`;
+        document.getElementById('detailsContent').innerHTML = '<div style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin" style="font-size: 24px;"></i><br>Loading...</div>';
+        document.getElementById('detailsModal').style.display = 'flex';
+        
+        // Fetch grievance details from the server
+        fetch(`/get_grievance_details/${grievanceId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayGrievanceDetails(data.grievance);
+                } else {
+                    document.getElementById('detailsContent').innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching grievance details:', error);
+                document.getElementById('detailsContent').innerHTML = '<div class="error">Failed to load details. Please try again.</div>';
+            });
+    }
+
+    function displayGrievanceDetails(grievance) {
+        // Format the responses HTML
+        let responsesHtml = '';
+        if (grievance.responses && grievance.responses.length > 0) {
+            responsesHtml = grievance.responses.map(response => {
+                const isHR = !response.is_employee_reply;
+                const colorClass = isHR ? "hr-response" : "employee-response";
+                const borderStyle = isHR ? "border-left: 4px solid #2c5aa0;" : "border-left: 4px solid #27ae60;";
+                
+                let attachmentHtml = '';
+                if (response.attachment_path) {
+                    const userType = isHR ? 'hr' : 'employee';
+                    const empCode = isHR ? response.hr_emp_code : grievance.emp_code;
+                    attachmentHtml = `
+                        <div style="margin-top: 10px;">
+                            <a href="/download/${userType}/${empCode}/${response.attachment_path}" target="_blank" 
+                               style="color: #2c5aa0; display: inline-flex; align-items: center; gap: 5px;">
+                               <i class="fas fa-paperclip"></i> View Attachment
+                            </a>
+                        </div>
+                    `;
+                }
+                
+                return `
+                    <div style="background: ${isHR ? '#f8f9fa' : '#f0f7f2'}; padding: 15px; border-radius: 8px; margin-bottom: 15px; ${borderStyle}">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <strong>${response.responder_name} ${isHR ? '(HR)' : '(Employee)'}</strong>
+                            <span style="color: #666;">${response.response_date}</span>
+                        </div>
+                        <div style="white-space: pre-wrap;">${response.response_text}</div>
+                        ${attachmentHtml}
+                    </div>
+                `;
+            }).join('');
+        } else {
+            responsesHtml = '<p>No responses yet.</p>';
+        }
+
+        // Format rating if available
+        let ratingHtml = '';
+        if (grievance.rating) {
+            const ratingEmojis = {
+                '1': '😡 Very Poor',
+                '2': '😞 Poor', 
+                '3': '😐 Average',
+                '4': '😊 Good',
+                '5': '🤩 Excellent'
+            };
+            
+            const ratingDisplay = ratingEmojis[grievance.rating] || `Rating: ${grievance.rating}/5`;
+            const emoji = ratingDisplay.split(' ')[0];
+            const text = ratingDisplay.split(' ').slice(1).join(' ');
+            
+            ratingHtml = `
+                <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+                    <h4 style="margin-bottom: 15px;">Feedback</h4>
+                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                        <span style="font-size: 2rem; margin-right: 10px;">${emoji}</span>
+                        <span style="font-weight: bold;">${text}</span>
+                    </div>
+                    ${grievance.feedback_comments ? `
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                        <strong>Comments:</strong>
+                        <div style="white-space: pre-wrap; margin-top: 5px;">${grievance.feedback_comments}</div>
+                    </div>` : ''}
+                </div>
+            `;
+        }
+
+        // Build the complete HTML
+        const detailsHtml = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div>
+                    <h4 style="margin-bottom: 15px;">Query Information</h4>
+                    <p><strong>ID:</strong> ${grievance.id}</p>
+                    <p><strong>Type:</strong> ${grievance.grievance_type_name}</p>
+                    <p><strong>Subject:</strong> ${grievance.subject}</p>
+                    <p><strong>Status:</strong> <span class="status-badge status-${grievance.status.toLowerCase().replace(' ', '-')}">${grievance.status}</span></p>
+                    <p><strong>Submitted:</strong> ${grievance.submission_date}</p>
+                </div>
+                <div>
+                    <h4 style="margin-bottom: 15px;">Employee Information</h4>
+                    <p><strong>Name:</strong> ${grievance.employee_name}</p>
+                    <p><strong>Employee Code:</strong> ${grievance.emp_code}</p>
+                    <p><strong>Email:</strong> ${grievance.employee_email || 'N/A'}</p>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin-bottom: 15px;">Description</h4>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; white-space: pre-wrap;">${grievance.description}</div>
+                ${grievance.attachment_path ? `
+                <div style="margin-top: 10px;">
+                    <a href="/download/employee/${grievance.emp_code}/${grievance.attachment_path}" target="_blank" 
+                       style="color: #2c5aa0; display: inline-flex; align-items: center; gap: 5px;">
+                       <i class="fas fa-paperclip"></i> View Employee's Attachment
+                    </a>
+                </div>` : ''}
+            </div>
+            
+            <div>
+                <h4 style="margin-bottom: 15px;">Conversation History</h4>
+                ${responsesHtml}
+            </div>
+            
+            ${ratingHtml}
+        `;
+        
+        document.getElementById('detailsContent').innerHTML = detailsHtml;
+    }
+
     // Close modals when clicking outside of them
     window.onclick = function(event) {
         const feedbackModal = document.getElementById('feedbackModal');
         const reassignModal = document.getElementById('reassignModal');
+        const detailsModal = document.getElementById('detailsModal');
+        
         if (event.target == feedbackModal) {
             feedbackModal.style.display = "none";
         }
         if (event.target == reassignModal) {
             reassignModal.style.display = "none";
+        }
+        if (event.target == detailsModal) {
+            detailsModal.style.display = "none";
         }
     }
     </script>
