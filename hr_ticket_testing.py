@@ -3,6 +3,7 @@ from flask_mail import Mail, Message
 from werkzeug.utils import secure_filename
 import os
 import psycopg2
+import psycopg2.extras
 from psycopg2 import pool
 from datetime import datetime, timedelta
 import uuid
@@ -105,9 +106,7 @@ GRIEVANCE_TYPES = {
     'reward': 'Reward',
     'address_proof': 'Address Proof',
     'id_card': 'ID Card',
-    'income_tax': 'Income Tax related Queries',
-    'testing1':'testing1',
-    'testing2':'testing2'
+    'income_tax': 'Income Tax related Queries'
 }
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -118,7 +117,6 @@ def allowed_file(filename):
 def get_upload_path(user_type, emp_code):
     """
     Returns the directory path for uploads based on user type and emp_code.
-    Example: uploads/employee/EMP001/ or uploads/hr/HR001/
     """
     base_dir = os.path.join(UPLOAD_FOLDER, user_type, emp_code)
     os.makedirs(base_dir, exist_ok=True)
@@ -266,8 +264,6 @@ def init_db():
             ''')
 
             hr_users = [
-                ('HR001', 'HR1', '8318436133', 'romil.agarwal@nvtpower.com', 'hr'),
-                ('HR002', 'HR2', '8318436133', 'snehil.satyam@nvtpower.com', 'hr'),
                 ('9022246', 'Mr. Sunil', '7419990925', 'sunil.kumar@nvtpower.com', 'hr'),
                 ('9023574', 'Mr. Dipanshu', '9306709009', 'Dipanshu.Dhiman@nvtpower.com', 'hr'),
                 ('9025263', 'Mrs. Priyanka', '9967040263', 'Priyanka.Mehta@nvtpower.com', 'hr'),
@@ -275,7 +271,7 @@ def init_db():
                 ('9025398', 'Mr. Saveen', '8800505557', 'Saveen.Bhutani@nvtpower.com', 'hr'),
                 ('9025649', 'Ms. Taru', '7217701675', 'taru.kaushik@nvtpower.com', 'hr'),
                 ('9022826', 'Mr. Pawan', '9765497863', 'pawan.tyagi@nvtpower.com', 'hr'),
-                ('9023649', 'Mr. Jayesh', '8383010034', 'jayesh.sinha@nvtpower.com', 'hr'),
+                ('9025044', 'Ms.Veena Sharma', '7419921280', 'Veena.sharma@nvtpower.com', 'hr'),
                 ('9025398', 'Mr. Saveen', '8800505557', 'Saveen.Bhutani@nvtpower.com', 'admin'),
                 ('9023422', 'Mr. Mohit Agarwal', '7622011462', 'mohit.agarwal@nvtpower.com', 'admin'),
                 ('ADMIN001', 'System Admin', '8318436133', 'romil.agarwal@nvtpower.com', 'admin')
@@ -293,7 +289,7 @@ def init_db():
               ''', user)
 
             grievance_mappings = [
-                ('leave_attendance', 'HR001'),
+                ('leave_attendance', '9022246'),
                 ('salary_queries', '9023574'),
                 ('policies', '9025263'),
                 ('reimbursement', '9025432'),
@@ -309,14 +305,12 @@ def init_db():
                 ('recruitment', '9025263'),
                 ('provident_fund', '9023574'),
                 ('mediclaim', '9023574'),
-                ('canteen_food', '9022826'),
-                ('transportation', '9023649'),
+                ('canteen_food', '9025044'),
+                ('transportation', '9025044'),
                 ('reward', '9022246'),
                 ('address_proof', '9022246'),
                 ('id_card', '9025649'),
-                ('income_tax', '9023574'),
-                ('testing1','HR001'),
-                ('testing2','HR002')
+                ('income_tax', '9023574')
             ]
 
             for mapping in grievance_mappings:
@@ -346,16 +340,14 @@ def send_email_flask_mail(to_email, subject, body, attachment_path=None):
     print("\n" + "="*60)
     print("📧 SMTP EMAIL SENDING STARTED")
     print("="*60)
-    
     MAX_RETRIES = 3
     BASE_DELAY = 5
     retry_count = 0
-    
     smtp_server = os.environ.get('MAIL_SERVER')
     smtp_port = int(os.environ.get('MAIL_PORT'))
     smtp_username = os.environ.get('MAIL_USERNAME')
     from_email = smtp_username
-    use_tls = os.environ.get('USE_TLS').lower() == 'true'
+    use_tls = os.environ.get('USE_TLS').lower() == 'true' 
     
     while retry_count < MAX_RETRIES:
         try:
@@ -526,6 +518,41 @@ def send_whatsapp_template(to_phone, template_name, lang_code, parameters):
         print(f"WhatsApp API error: {e}")
         return False
 
+def load_grievance_responses(grievance_id, cur):
+    """
+    Returns list of response dicts with role inference (hr/admin vs employee)
+    """
+    cur.execute("""SELECT responder_name, response_text, response_date, attachment_path, responder_email
+        FROM responses
+        WHERE grievance_id=%s
+        ORDER BY response_date ASC
+    """, (grievance_id,))
+    rows = cur.fetchall()
+    out = []
+    for r in rows:
+        responder_name, text, rdate, attach, remail = r
+        role = 'employee'
+        if remail:
+            cur.execute("SELECT role, emp_code FROM users WHERE employee_email=%s LIMIT 1", (remail,))
+            role_row = cur.fetchone()
+            if role_row:
+                role = role_row[0]
+                hr_emp_code = role_row[1]
+            else:
+                hr_emp_code = ''
+        else:
+            hr_emp_code = ''
+        out.append({
+            'responder_name': responder_name,
+            'response_text': text,
+            'response_date': rdate,
+            'created_at': rdate,
+            'attachment_path': attach,
+            'role': role,
+            'hr_emp_code': hr_emp_code
+        })
+    return out
+
 @app.route('/run-check')
 def run_check():
     with app.app_context():
@@ -618,7 +645,7 @@ def submit_grievance():
                     print(f"❌ User {emp_code} has {len(pending_feedback)} resolved queries without feedback")
                     pending_query_ids = [query[0] for query in pending_feedback]
                     
-                    flash(f'You have {len(pending_feedback)} resolved queries pending feedback. Please submit feedback for queries: {", ".join(pending_query_ids)} before submitting a new query.', 'error')
+                    flash('Please log into your account by clicking on the dashboard link above & submit feedback for resolved queries before submitting a new query.', 'error')
                     return redirect(url_for('index'))
                 
                 print(f"✅ No pending feedback found for user {emp_code}")
@@ -849,15 +876,17 @@ def respond_grievance(grievance_id):
                     return render_template('response.html', grievance=grievance, grievance_types=GRIEVANCE_TYPES,
                                            responder_name=responder_name, responder_email=responder_email)
 
+                # ensure file var always defined
+                file = request.files.get('attachment')  # <-- safe get
                 response_attachment_path = None
-                if 'attachment' in request.files:
-                    file = request.files['attachment']
-                    if file and file.filename != '' and allowed_file(file.filename):
-                        upload_dir = get_upload_path('hr', user['emp_code'])
-                        filename = secure_filename(f"response_{grievance_id}_{file.filename}")
-                        full_path = os.path.join(upload_dir, filename)
-                        file.save(full_path)
-                        response_attachment_path = filename  
+                if file and file.filename and allowed_file(file.filename):
+                    upload_dir = get_upload_path('hr', user['emp_code'])
+                    filename = secure_filename(f"response_{grievance_id}_{file.filename}")
+                    full_path = os.path.join(upload_dir, filename)
+                    file.save(full_path)
+                    response_attachment_path = filename  
+                else:
+                    full_path = None  # ensure defined
 
                 response_date = datetime.now()
                 c.execute('''INSERT INTO responses
@@ -1203,7 +1232,12 @@ def check_pending_grievances(debug=True):
                         to_phone=target_phone,
                         template_name="grievance_pending_reminder",
                         lang_code="en",
-                        parameters=[str(age_h), gid, emp_name, subject]
+                        parameters=[
+                            str(age_h), 
+                            gid, 
+                            emp_name, 
+                            subject,
+                            sub_dt.strftime('%d-%m-%Y %H:%M')]
                     )
 
                 # Upsert reminder
@@ -1302,7 +1336,7 @@ def send_daily_hr_pending_summary(debug=True):
                         to_phone=hr_phone,
                         template_name="daily_hr_pending_summary",
                         lang_code="en",
-                        parameters=[hr_name, str(total), str(b72), str(b48), str(b24), str(under24)]
+                        parameters=[hr_name, str(total), str(under24)]
                     )
                 if debug:
                     print(f" - {hr_name}: emailed/WA total={total} >=72h={b72}")
@@ -1398,6 +1432,124 @@ def send_pending_feedback_reminders():
 def generate_otp():
     """Generate a 6-digit OTP"""
     return ''.join(random.choices(string.digits, k=6))
+
+@app.route('/get_grievance_details/<grievance_id>')
+def get_grievance_details(grievance_id):
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Not logged in'})
+    
+    conn = db_pool.getconn()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Fetch the grievance details
+        cur.execute("""
+            SELECT g.*, 
+                g.employee_name, 
+                g.employee_email
+            FROM grievances g
+            WHERE g.id = %s
+        """, (grievance_id,))
+        
+        grievance = cur.fetchone()
+        if not grievance:
+            return jsonify({'success': False, 'error': 'Grievance not found'})
+        
+        # Check if the user has access to this grievance
+        is_admin = session['user']['role'] == 'admin'
+        
+        # Get the HR assigned to this grievance type
+        cur.execute("""
+            SELECT hr_emp_code FROM hr_grievance_mapping 
+            WHERE grievance_type = %s
+        """, (grievance['grievance_type'],))
+        
+        hr_mapping = cur.fetchone()
+        hr_emp_code = hr_mapping[0] if hr_mapping else None
+        
+        is_hr_for_grievance = (session['user']['role'] == 'hr' and 
+                            session['user']['emp_code'] == hr_emp_code)
+        
+        if not (is_admin or is_hr_for_grievance):
+            return jsonify({'success': False, 'error': 'Access denied'})
+        
+        # Convert to dict for JSON serialization
+        grievance_dict = dict(grievance)
+        
+        # Add grievance type name
+        grievance_dict['grievance_type_name'] = GRIEVANCE_TYPES.get(grievance_dict['grievance_type'], 'Unknown')
+        
+        # Format dates
+        if grievance_dict['submission_date']:
+            grievance_dict['submission_date'] = grievance_dict['submission_date'].strftime('%Y-%m-%d %H:%M')
+        if grievance_dict['updated_at']:
+            grievance_dict['updated_at'] = grievance_dict['updated_at'].strftime('%Y-%m-%d %H:%M')
+        
+        # Get responses - FIXED VERSION to avoid duplicates
+        cur.execute("""
+            SELECT r.id, r.grievance_id, r.responder_email, r.responder_name, 
+                   r.response_text, r.response_date::text, r.attachment_path,
+                   r.created_at
+            FROM responses r
+            WHERE r.grievance_id = %s
+            ORDER BY r.response_date ASC
+        """, (grievance_id,))
+        
+        responses = []
+        for row in cur.fetchall():
+            resp_dict = dict(row)
+            
+            # Determine if this is an employee reply by comparing with grievance's employee email
+            resp_dict['is_employee_reply'] = resp_dict['responder_email'] == grievance_dict.get('employee_email')
+            
+            # Only for non-employee replies (HR/Admin), determine the proper role 
+            if not resp_dict['is_employee_reply']:
+                # Check if this user exists and what role they have
+                cur.execute("""
+                    SELECT emp_code, role, employee_name 
+                    FROM users 
+                    WHERE employee_email = %s 
+                    LIMIT 1
+                """, (resp_dict['responder_email'],))
+                user_info = cur.fetchone()
+                
+                if user_info:
+                    # Add responder type based on role in users table
+                    resp_dict['responder_type'] = 'System Admin' if user_info['role'] == 'admin' else 'HR'
+                    
+                    # Make sure we use the proper name from users table if available
+                    if user_info['employee_name']:
+                        resp_dict['responder_name'] = user_info['employee_name']
+                else:
+                    resp_dict['responder_type'] = 'HR' # Default if user not found
+            else:
+                resp_dict['responder_type'] = 'Employee'
+            
+            responses.append(resp_dict)
+        
+        grievance_dict['responses'] = responses
+        
+        # Get feedback information if available
+        cur.execute("""
+            SELECT rating, feedback_comments, feedback_date::text
+            FROM feedback
+            WHERE grievance_id = %s
+        """, (grievance_id,))
+        feedback = cur.fetchone()
+        if feedback:
+            grievance_dict['rating'] = feedback['rating']
+            grievance_dict['feedback_comments'] = feedback['feedback_comments']
+            grievance_dict['feedback_date'] = feedback['feedback_date']
+        
+        return jsonify({'success': True, 'grievance': grievance_dict})
+        
+    except Exception as e:
+        import traceback
+        print(f"Error in get_grievance_details: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        db_pool.putconn(conn)
 
 def mask_phone(phone):
     """Mask the middle digits of a phone number for privacy"""
@@ -2059,101 +2211,88 @@ def reply_grievance(grievance_id):
     if not user or not user.get('authenticated') or user.get('role') != 'employee':
         flash('Unauthorized.', 'error')
         return redirect(url_for('login'))
-
     conn = db_pool.getconn()
     try:
         with conn.cursor() as c:
             c.execute("""SELECT id, emp_code, employee_name, employee_email,
                                 employee_phone, grievance_type, subject, status,
-                                reply_count
-                         FROM grievances WHERE id=%s AND emp_code=%s""",
+                                reply_count, description, attachment_path, submission_date
+                         FROM grievances
+                         WHERE id=%s AND emp_code=%s""",
                       (grievance_id, user['emp_code']))
             gr = c.fetchone()
             if not gr:
                 flash('Query not found.', 'error')
                 return redirect(url_for('my_queries'))
-
             status = gr[7]
-            reply_count = gr[8] if gr[8] is not None else 0
+            reply_count = gr[8] or 0
             if status == 'Resolved':
                 flash('Cannot reply to a resolved query.', 'error')
                 return redirect(url_for('my_queries'))
-            if reply_count >= 2:
-                flash('You have reached the maximum of 2 replies.', 'error')
+            if reply_count >= EMPLOYEE_MAX_REPLIES:
+                flash('You have reached the maximum reply limit.', 'error')
                 return redirect(url_for('my_queries'))
-
             if request.method == 'POST':
-                reply_text = request.form.get('reply_text', '').strip()
-                if not reply_text or len(reply_text) < 10:
+                reply_text = request.form.get('reply_text','').strip()
+                if len(reply_text) < 10:
                     flash('Reply must be at least 10 characters.', 'error')
                     return redirect(url_for('reply_grievance', grievance_id=grievance_id))
-
                 attachment_path = None
-                if 'attachment' in request.files:
-                    file = request.files['attachment']
-                    if file and file.filename != '' and allowed_file(file.filename):
-                        upload_dir = get_upload_path('employee', user['emp_code'])
-                        fname = secure_filename(f"reply_{grievance_id}_{reply_count+1}_{file.filename}")
-                        full_path = os.path.join(upload_dir, fname)
-                        file.save(full_path)
-                        attachment_path = fname
-
-                # Insert reply as a response row (responder = employee)
+                up_file = request.files.get('attachment')
+                if up_file and up_file.filename and allowed_file(up_file.filename):
+                    upload_dir = get_upload_path('employee', user['emp_code'])
+                    fname = secure_filename(f"reply_{grievance_id}_{reply_count+1}_{up_file.filename}")
+                    up_file.save(os.path.join(upload_dir, fname))
+                    attachment_path = fname
                 c.execute("""INSERT INTO responses
-                            (grievance_id, responder_email, responder_name, response_text, response_date, attachment_path)
-                            VALUES (%s,%s,%s,%s,%s,%s)""",
+                             (grievance_id, responder_email, responder_name, response_text, response_date, attachment_path)
+                             VALUES (%s,%s,%s,%s,%s,%s)""",
                           (grievance_id, gr[3], gr[2], reply_text, datetime.now(), attachment_path))
-                c.execute("UPDATE grievances SET reply_count = reply_count + 1, updated_at=%s WHERE id=%s",
+                c.execute("UPDATE grievances SET reply_count=reply_count+1, updated_at=%s WHERE id=%s",
                           (datetime.now(), grievance_id))
-
-                # Notify assigned HR
+                # Notify HR
                 c.execute("""SELECT u.employee_email, u.employee_name, u.employee_phone
                              FROM hr_grievance_mapping m
-                             JOIN users u ON m.hr_emp_code = u.emp_code
-                             WHERE m.grievance_type = %s""", (gr[5],))
+                             JOIN users u ON m.hr_emp_code=u.emp_code
+                             WHERE m.grievance_type=%s""", (gr[5],))
                 hr_info = c.fetchone()
                 if hr_info:
                     hr_email, hr_name, hr_phone = hr_info
-                    subj = f"Employee Reply Received - {gr[6]} (ID: {grievance_id})"
+                    subj = f"Employee Reply #{reply_count+1} - Query {grievance_id}"
                     body = f"""
 <html><body style="font-family:Arial,sans-serif">
 <p>Dear {hr_name},</p>
-<p>The employee has added a reply to the query requiring your attention:</p>
-<ul>
-<li><b>ID:</b> {grievance_id}</li>
-<li><b>Subject:</b> {gr[6]}</li>
-<li><b>Reply Count:</b> {reply_count+1}/2</li>
-<li><b>Status:</b> {status}</li>
-</ul>
-<p><b>Reply Text:</b><br>{reply_text}</p>
-<p>Please respond in the portal.</p>
-<p>Human Resources</p>
-</body></html>
-"""
+<p>Employee {gr[2]} added reply #{reply_count+1} to query {grievance_id} ({gr[6]}).</p>
+<p><b>Reply:</b><br>{reply_text}</p>
+<p>Portal: {SERVER_HOST or ''}</p>
+</body></html>"""
                     if hr_email:
                         send_email_flask_mail(hr_email, subj, body)
                     if hr_phone:
                         send_whatsapp_template(
                             to_phone=hr_phone,
-                            template_name="employee_reply_hr_notify",
+                            template_name="employee_reply_hr",
                             lang_code="en",
-                            parameters=[hr_name, grievance_id, gr[2], gr[6], str(reply_count+1)]
+                            parameters=[hr_name, grievance_id, gr[2], gr[6], reply_text]
                         )
                 conn.commit()
                 flash('Reply submitted.', 'success')
                 return redirect(url_for('my_queries'))
-
-            # GET
+            # GET view
+            responses = load_grievance_responses(grievance_id, c)
             return render_template('reply_grievance.html',
                                    grievance_id=grievance_id,
                                    subject=gr[6],
                                    status=status,
                                    reply_count=reply_count,
-                                   max_replies=2)
+                                   max_replies=EMPLOYEE_MAX_REPLIES,
+                                   original_description=gr[9],
+                                   original_attachment=gr[10],
+                                   responses=responses)
     finally:
         db_pool.putconn(conn)
 
-@app.route('/edit-grievance/<grievance_id>', methods=['GET', 'POST'])
+@app.route('/edit-grievance/<grievance_id>', methods=['GET','POST'])
 def edit_grievance(grievance_id):
     user = session.get('user')
     if not user or not user.get('authenticated') or user.get('role') != 'employee':
@@ -2171,7 +2310,8 @@ def edit_grievance(grievance_id):
             if grievance[12] != 'Submitted':
                 flash('You can only edit query that are still submitted.', 'error')
                 return redirect(url_for('my_queries'))
-            edit_count = grievance[17] if len(grievance) > 17 and grievance[17] is not None else 0
+            # indices: after ALTERs -> date_of_birth(15), edit_count(16), reply_count(17)
+            edit_count = grievance[16] if len(grievance) > 16 and grievance[16] is not None else 0  # <-- fixed
             if edit_count >= 1:
                 flash('You can only edit a query once.', 'error')
                 return redirect(url_for('my_queries'))
@@ -2194,7 +2334,7 @@ def edit_grievance(grievance_id):
                     flash('Subject and description are required.', 'error')
                     return render_template('edit_grievance.html', grievance=grievance, grievance_types=GRIEVANCE_TYPES)
 
-                old_grievance_type = grievance[10]
+                old_grievance_type = grievance[7]  # <-- fixed (was 10)
                 old_subject = grievance[8]
                 old_description = grievance[9]
 
@@ -2303,9 +2443,9 @@ def edit_grievance(grievance_id):
                         hr_subject = f"New Query Assigned (ID: {grievance_id})"
                         hr_body = f"""
                         <html>
-                        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: 
-                            <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: 
-                                <h2 style="color: 
+                        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
+                            <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
+                                <h2 style="color: #1e3a8a;">Query Assigned: Ask HR</h2>
                                 <p>Dear {new_hr_name},</p>
                                 <p>A query has been updated and is now assigned to you:</p>
                                 <div style="background: white; padding: 20px; border-radius: 8px;">
@@ -2393,7 +2533,7 @@ def delete_grievance_employee():
             <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;"> 
-                    <h2 style="color:#1e3a8a;">Query Deleted: Ask HR</h2> 
+                    <h2 style="color: #1e3a8a;">Query Deleted: Ask HR</h2> 
                     <p>Dear {employee_name},</p>
                     <p>Your query request with the following details has been <b>deleted</b>:</p>
                     <div style="background: white; padding: 20px; border-radius: 8px;">
@@ -2427,7 +2567,7 @@ def delete_grievance_employee():
                 <html>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px; background: #f7fafc; border-radius: 8px;">
-                        <h2 style="color:#1e3a8a;">Query Deleted: Ask HR</h2> 
+                        <h2 style="color: #1e3a8a;">Query Deleted: Ask HR</h2> 
                         <p>Dear {hr_name or 'HR'},</p>
                         <p>The following query has been <b>deleted by the employee</b>:</p>
                         <div style="background: white; padding: 20px; border-radius: 8px;">
@@ -2461,6 +2601,7 @@ def delete_grievance_employee():
         flash(f'Error deleting query: {str(e)}', 'error')
     finally:
         db_pool.putconn(conn)
+
     return redirect(url_for('my_queries'))
 
 @app.route('/delete-grievance', methods=['POST'])
@@ -3121,7 +3262,6 @@ if __name__ == '__main__':
         trigger=IntervalTrigger(hours=REMINDER_SCAN_INTERVAL_HOURS),
         id='overdue_scan',
         replace_existing=True,
-        next_run_time=datetime.now()  # immediate
     )
     scheduler_overdue.start()
     print("📅 Overdue reminder scheduler (hourly + immediate) started")
@@ -3133,7 +3273,6 @@ if __name__ == '__main__':
         trigger=CronTrigger(hour="9,16", minute=0),
         id='daily_hr_summary',
         replace_existing=True,
-        next_run_time=datetime.now()  # first immediate for verification
     )
     scheduler_daily.start()
     print("📅 Daily HR summary scheduler (09:00 & 16:00 + immediate) started")
@@ -3145,13 +3284,8 @@ if __name__ == '__main__':
         trigger=IntervalTrigger(days=1),
         id='feedback_reminders',
         replace_existing=True,
-        next_run_time=datetime.now()
     )
     scheduler_feedback.start()
     print("📅 Feedback reminder scheduler (daily + immediate) started")
-
-    # Defensive immediate executions
-    run_overdue_scan()
-    run_daily_summary()
 
     app.run(debug=True, use_reloader=False)
