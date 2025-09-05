@@ -900,7 +900,7 @@ def respond_grievance(grievance_id):
 
                 employee_email = grievance[3]
                 employee_name = grievance[2]
-                feedback_url = 'http://172.19.66.141:8112/login'
+                feedback_url = {SERVER_HOST}
                 print("Final feedback URL:", feedback_url)             
                 response_email_body = f"""
 <html>
@@ -3028,16 +3028,10 @@ def get_employee_sap():
         return jsonify({'success': False, 'error': 'No employee code provided'}), 400
 
     try:
-        url = f"https://api44.sapsf.com/odata/v2/EmpJob?$select=division,divisionNav/name,location,locationNav/name,userId,employmentNav/personNav/personalInfoNav/firstName,employmentNav/personNav/personalInfoNav/middleName,employmentNav/personNav/personalInfoNav/lastName,department,departmentNav/name,employmentNav/personNav/emailNav/emailAddress,employmentNav/personNav/phoneNav/phoneNumber,employmentNav/personNav/dateOfBirth,emplStatusNav/picklistLabels/label&$expand=employmentNav/personNav/personalInfoNav,divisionNav,locationNav,departmentNav,employmentNav/personNav/phoneNav,employmentNav/personNav/emailNav,emplStatusNav/picklistLabels&$filter=userId eq '{emp_code}'&$format=json"
-
-        print(f"🔗 Using API URL: {url}")
-
+        api_base_url = os.environ.get('SAP_API_BASE_URL')
         username = os.environ.get('SAP_API_USERNAME')
         password = os.environ.get('SAP_API_PASSWORD')
-
-        print(f"👤 Using username: {username}")
-        print(f"🔑 Password provided: {'Yes' if password else 'No'}")
-
+        url = f"{api_base_url}/odata/v2/EmpJob?$select=division,divisionNav/name,location,locationNav/name,userId,employmentNav/personNav/personalInfoNav/firstName,employmentNav/personNav/personalInfoNav/middleName,employmentNav/personNav/personalInfoNav/lastName,department,departmentNav/name,employmentNav/personNav/emailNav/emailAddress,employmentNav/personNav/phoneNav/phoneNumber,employmentNav/personNav/dateOfBirth,emplStatusNav/picklistLabels/label&$expand=employmentNav/personNav/personalInfoNav,divisionNav,locationNav,departmentNav,employmentNav/personNav/phoneNav,employmentNav/personNav/emailNav,emplStatusNav/picklistLabels&$filter=userId eq '{emp_code}'&$format=json"
         print(f"🚀 Sending API request with 5-second timeout...")
         response = requests.get(
             url,
