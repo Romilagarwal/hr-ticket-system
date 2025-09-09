@@ -73,12 +73,12 @@ A comprehensive HR Ticket Management System designed to streamline employee requ
 
 5. **Initialize the database**
    ```bash
-   python init_db.py
+   python hr_ticket_system.py
    ```
 
 6. **Run the application**
    ```bash
-   flask run --host=0.0.0.0 --port=8112
+   python hr_ticket_system.py
    ```
 
 ## 🔧 Environment Configuration
