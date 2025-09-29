@@ -72,7 +72,6 @@
             font-size: 2.5rem;
             margin-bottom: 10px;
         }
-
         .nav-container {
             display: flex;
             justify-content: space-between;
@@ -529,6 +528,19 @@
             </a>
         </div>
     </div>
+    {% if session.user and session.user.role == 'admin' %}
+    <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+    <div style="background-color: #f8f9fa; border-radius: 8px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+        <span style="margin-right: 10px; font-weight: bold;">Dashboard:</span>
+        <a href="{{ url_for('master_dashboard') }}" class="btn {% if request.path == url_for('master_dashboard') %}btn-primary{% else %}btn-outline-primary{% endif %}" style="margin-right: 5px;">
+            <i class="fas fa-tachometer-alt mr-1"></i> Master Dashboard
+        </a>
+        <a href="{{ url_for('hr_dashboard') }}" class="btn {% if request.path == url_for('hr_dashboard') %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            <i class="fas fa-user-tie mr-1"></i> HR Dashboard
+        </a>
+    </div>
+    </div>
+    {% endif %}
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-headset"></i> HR Dashboard</h1>

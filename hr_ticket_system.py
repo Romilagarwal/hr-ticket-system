@@ -1,4 +1,4 @@
-from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, jsonify , send_from_directory
+from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, jsonify , send_from_directory , send_file
 from flask_mail import Mail, Message
 from werkzeug.utils import secure_filename
 import os
@@ -274,7 +274,8 @@ def init_db():
                 ('9025044', 'Ms.Veena Sharma', '7419921280', 'Veena.sharma@nvtpower.com', 'hr'),
                 ('9025398', 'Mr. Saveen', '8800505557', 'Saveen.Bhutani@nvtpower.com', 'admin'),
                 ('9023422', 'Mr. Mohit Agarwal', '7622011462', 'mohit.agarwal@nvtpower.com', 'admin'),
-                ('ADMIN001', 'System Admin', '8318436133', 'romil.agarwal@nvtpower.com', 'admin')
+                ('ADMIN001', 'System Admin', '8318436133', 'romil.agarwal@nvtpower.com', 'admin'),
+                ('9025649', 'Ms. Taru', '7217701675', 'taru.kaushik@nvtpower.com', 'admin'),
             ]
 
             for user in hr_users:
@@ -716,7 +717,6 @@ def submit_grievance():
             hr_email = 'mohit.agarwal@nvtpower.com'
             hr_name = 'Mohit Agarwal'
             print(f"❌ Error finding HR email: {str(e)}")
-
         email_body = f"""
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
@@ -729,7 +729,11 @@ def submit_grievance():
             <p><strong>Status:</strong> Submitted</p>
             <p><strong>Submission Date:</strong> {datetime.now().strftime('%d-%m-%Y, %H:%M:%S')}</p>
         </div>
-        <p>Please login into the Ask HR Portal to resolve the same.</p>
+        <p>Please review and respond as soon as possible.</p>
+        <p><a href="{SERVER_HOST}/respond/{grievance_id}"
+            style="display:inline-block; background:#1e3a8a; color:#fff; padding:10px 18px; border-radius:5px; text-decoration:none; font-weight:bold;">
+            Respond Now</a>
+        </p>
         <p><strong>Human Resources</strong></p>
     </div>
 </body>
@@ -900,7 +904,7 @@ def respond_grievance(grievance_id):
 
                 employee_email = grievance[3]
                 employee_name = grievance[2]
-                feedback_url = {SERVER_HOST}
+                feedback_url = 'http://172.19.66.141:8112/login'
                 print("Final feedback URL:", feedback_url)             
                 response_email_body = f"""
 <html>
@@ -1879,7 +1883,8 @@ def hr_dashboard():
                                       max=max,
                                       min=min,
                                       stats=stats,
-                                      hr_staff=hr_staff)
+                                      hr_staff=hr_staff,
+                                      user=session.get('user'))
 
             query = '''SELECT g.id, g.emp_code, g.employee_name, g.employee_email, g.grievance_type,
                         g.subject, g.status, g.submission_date, g.attachment_path,
@@ -1956,7 +1961,8 @@ def hr_dashboard():
                                   max=max,
                                   min=min,
                                   stats=stats,
-                                  hr_staff=hr_staff)
+                                  hr_staff=hr_staff,
+                                  user=session.get('user'))
     finally:
         db_pool.putconn(conn)
 
@@ -2071,6 +2077,7 @@ def master_dashboard():
     conn = db_pool.getconn()
     try:
         with conn.cursor() as c:
+            # Get stats
             c.execute('''
                 SELECT
                     SUM(CASE WHEN status = 'Submitted' THEN 1 ELSE 0 END) as submitted,
@@ -2089,6 +2096,7 @@ def master_dashboard():
                 'total': stats_row[4] or 0
             }
 
+            # Get HR staff
             c.execute('''
                 SELECT emp_code, employee_name FROM users
                 WHERE role = 'hr'
@@ -2096,6 +2104,22 @@ def master_dashboard():
             ''')
             hr_staff = c.fetchall()
 
+            # Get counts by grievance type - MOVED TO TOP TO ENSURE IT'S ALWAYS DEFINED
+            c.execute('''
+                SELECT grievance_type, COUNT(*) as count
+                FROM grievances
+                GROUP BY grievance_type
+                ORDER BY count DESC
+            ''')
+            grievance_type_counts = c.fetchall()
+            
+            # Convert to a dictionary with human-readable names
+            type_counts = {}
+            for g_type, count in grievance_type_counts:
+                type_name = GRIEVANCE_TYPES.get(g_type, g_type)
+                type_counts[type_name] = count
+
+            # Build the main query
             query = '''
                 SELECT
                     g.id, g.emp_code, g.employee_name, g.employee_email,
@@ -2109,9 +2133,33 @@ def master_dashboard():
                 LEFT JOIN feedback f ON g.id = f.grievance_id
                 WHERE 1=1
             '''
-            params = []
+            # Calculate feedback statistics
+            c.execute('''
+    SELECT 
+        COUNT(CASE WHEN rating IS NOT NULL OR feedback_comments IS NOT NULL THEN 1 END) as with_feedback,
+        COUNT(CASE WHEN rating IS NULL AND feedback_comments IS NULL THEN 1 END) as without_feedback,
+        COUNT(CASE WHEN rating = 1 THEN 1 END) as rating_1,
+        COUNT(CASE WHEN rating = 2 THEN 1 END) as rating_2,
+        COUNT(CASE WHEN rating = 3 THEN 1 END) as rating_3,
+        COUNT(CASE WHEN rating = 4 THEN 1 END) as rating_4,
+        COUNT(CASE WHEN rating = 5 THEN 1 END) as rating_5
+    FROM grievances g
+    LEFT JOIN feedback f ON g.id = f.grievance_id
+    WHERE g.status = 'Resolved'
+''')
 
-            grievances = []
+            feedback_stats = c.fetchone()
+
+            stats['with_feedback'] = feedback_stats[0] or 0
+            stats['without_feedback'] = feedback_stats[1] or 0
+            stats['rating_1'] = feedback_stats[2] or 0
+            stats['rating_2'] = feedback_stats[3] or 0
+            stats['rating_3'] = feedback_stats[4] or 0
+            stats['rating_4'] = feedback_stats[5] or 0
+            stats['rating_5'] = feedback_stats[6] or 0
+            params = []
+            
+            # Apply filters
             if status:
                 query += " AND g.status = %s"
                 params.append(status)
@@ -2137,17 +2185,21 @@ def master_dashboard():
                 search_term = f"%{search}%"
                 params.extend([search_term, search_term, search_term, search_term])
 
+            # Get total count for pagination
             count_query = f"SELECT COUNT(*) FROM ({query}) AS count_query"
             c.execute(count_query, params)
             total_count = c.fetchone()[0]
             total_pages = (total_count + per_page - 1) // per_page
 
+            # Add pagination to main query
             query += " ORDER BY g.submission_date DESC LIMIT %s OFFSET %s"
             params.extend([per_page, offset])
 
+            # Execute main query
             c.execute(query, params)
             grievances_data = c.fetchall()
 
+            # Process grievances data
             grievances = []
             for g in grievances_data:
                 grievances.append({
@@ -2167,6 +2219,8 @@ def master_dashboard():
                     'updated_at': g[13],
                     'responses': []
                 })
+
+            # Get responses for all grievances
             ids = [gr['id'] for gr in grievances]
             if ids:
                 c.execute("""
@@ -2175,6 +2229,7 @@ def master_dashboard():
                     WHERE grievance_id = ANY(%s)
                     ORDER BY response_date ASC
                     """, (ids,))
+                
                 resp_map = {}
                 for gid, rname, remail, rtext, rdate, rattach in c.fetchall():
                     resp_map.setdefault(gid, []).append({
@@ -2184,13 +2239,16 @@ def master_dashboard():
                         'created_at': rdate.strftime('%Y-%m-%d %H:%M') if rdate else '',
                         'attachment_path': rattach
                     })
+                
                 for gr in grievances:
                     gr['responses'] = resp_map.get(gr['id'], [])
+                    
             return render_template('master_dashboard.html',
                                  grievances=grievances,
                                  grievance_types=GRIEVANCE_TYPES,
                                  stats=stats,
                                  hr_staff=hr_staff,
+                                 type_counts=type_counts,
                                  page=page,
                                  total_pages=total_pages,
                                  filter_args=filter_args,
@@ -2201,7 +2259,8 @@ def master_dashboard():
                                  date_from=date_from,
                                  date_to=date_to,
                                  max=max,
-                                 min=min)
+                                 min=min,
+                                 user=session.get('user'))
     finally:
         db_pool.putconn(conn)
 
@@ -3028,10 +3087,16 @@ def get_employee_sap():
         return jsonify({'success': False, 'error': 'No employee code provided'}), 400
 
     try:
-        api_base_url = os.environ.get('SAP_API_BASE_URL')
+        url = f"https://api44.sapsf.com/odata/v2/EmpJob?$select=division,divisionNav/name,location,locationNav/name,userId,employmentNav/personNav/personalInfoNav/firstName,employmentNav/personNav/personalInfoNav/middleName,employmentNav/personNav/personalInfoNav/lastName,department,departmentNav/name,employmentNav/personNav/emailNav/emailAddress,employmentNav/personNav/phoneNav/phoneNumber,employmentNav/personNav/dateOfBirth,emplStatusNav/picklistLabels/label&$expand=employmentNav/personNav/personalInfoNav,divisionNav,locationNav,departmentNav,employmentNav/personNav/phoneNav,employmentNav/personNav/emailNav,emplStatusNav/picklistLabels&$filter=userId eq '{emp_code}'&$format=json"
+
+        print(f"🔗 Using API URL: {url}")
+
         username = os.environ.get('SAP_API_USERNAME')
         password = os.environ.get('SAP_API_PASSWORD')
-        url = f"{api_base_url}/odata/v2/EmpJob?$select=division,divisionNav/name,location,locationNav/name,userId,employmentNav/personNav/personalInfoNav/firstName,employmentNav/personNav/personalInfoNav/middleName,employmentNav/personNav/personalInfoNav/lastName,department,departmentNav/name,employmentNav/personNav/emailNav/emailAddress,employmentNav/personNav/phoneNav/phoneNumber,employmentNav/personNav/dateOfBirth,emplStatusNav/picklistLabels/label&$expand=employmentNav/personNav/personalInfoNav,divisionNav,locationNav,departmentNav,employmentNav/personNav/phoneNav,employmentNav/personNav/emailNav,emplStatusNav/picklistLabels&$filter=userId eq '{emp_code}'&$format=json"
+
+        print(f"👤 Using username: {username}")
+        print(f"🔑 Password provided: {'Yes' if password else 'No'}")
+
         print(f"🚀 Sending API request with 5-second timeout...")
         response = requests.get(
             url,
@@ -3237,6 +3302,94 @@ def download_file(user_type, emp_code, filename):
         print(f"❌ Download error: {str(e)}")
         flash('Error accessing file.', 'error')
         return redirect(url_for('index'))
+
+@app.route('/export-grievance-stats')
+def export_grievance_stats():
+    user = session.get('user')
+    if not user or not user.get('authenticated') or user.get('role') != 'admin':
+        flash('You do not have permission to access this resource', 'error')
+        return redirect(url_for('login'))
+        
+    conn = db_pool.getconn()
+    try:
+        with conn.cursor() as c:
+            # Get counts by grievance type
+            c.execute('''
+                SELECT grievance_type, COUNT(*) as count
+                FROM grievances
+                GROUP BY grievance_type
+                ORDER BY count DESC
+            ''')
+            grievance_type_counts = c.fetchall()
+            
+            # Get counts by status
+            c.execute('''
+                SELECT status, COUNT(*) as count
+                FROM grievances
+                GROUP BY status
+                ORDER BY count DESC
+            ''')
+            status_counts = c.fetchall()
+            
+        import pandas as pd
+        import io
+        
+        # Create DataFrame for grievance types
+        type_data = []
+        for g_type, count in grievance_type_counts:
+            type_name = GRIEVANCE_TYPES.get(g_type, g_type)
+            type_data.append({"Query Type": type_name, "Count": count})
+        
+        # Create DataFrame for status
+        status_data = [{"Status": status, "Count": count} for status, count in status_counts]
+        
+        # Create an Excel writer with pandas
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            # Convert data to DataFrames and write to Excel
+            pd.DataFrame(type_data).to_excel(writer, sheet_name='Query Types', index=False)
+            pd.DataFrame(status_data).to_excel(writer, sheet_name='Status', index=False)
+            
+            # Access the workbook and add some formatting
+            workbook = writer.book
+            
+            # Format for Query Types sheet
+            type_sheet = writer.sheets['Query Types']
+            type_sheet.set_column('A:A', 30)
+            type_sheet.set_column('B:B', 15)
+            
+            # Format for Status sheet
+            status_sheet = writer.sheets['Status']
+            status_sheet.set_column('A:A', 20)
+            status_sheet.set_column('B:B', 15)
+            
+            # Add a title format
+            title_format = workbook.add_format({
+                'bold': True,
+                'font_size': 14,
+                'align': 'center',
+                'valign': 'vcenter'
+            })
+            
+            # Add titles to sheets
+            type_sheet.write('A1', 'Query Type', title_format)
+            type_sheet.write('B1', 'Count', title_format)
+            status_sheet.write('A1', 'Status', title_format)
+            status_sheet.write('B1', 'Count', title_format)
+        
+        # Seek to the beginning of the stream
+        output.seek(0)
+        
+        # Set up the response headers
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            download_name=f'grievance_stats_{timestamp}.xlsx',
+            as_attachment=True
+        ) 
+    finally:
+        db_pool.putconn(conn)
 
 if __name__ == '__main__':
     init_db()
