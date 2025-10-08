@@ -2053,17 +2053,28 @@ def master_dashboard():
     per_page = 10
     offset = (page - 1) * per_page
 
-    status = request.args.get('status', '')
-    grievance_type = request.args.get('grievance_type', '')
-    date_from = request.args.get('date_from', '')
-    date_to = request.args.get('date_to', '')
-    search = request.args.get('search', '')
-    hr_emp_code = request.args.get('hr_emp_code', '')
+    # Get filter parameters - FIX: Ensure empty string means no filter
+    status = request.args.get('status', '').strip()  # Added .strip()
+    grievance_type = request.args.get('grievance_type', '').strip()  # Added .strip()
+    date_from = request.args.get('date_from', '').strip()  # Added .strip()
+    date_to = request.args.get('date_to', '').strip()  # Added .strip()
+    search = request.args.get('search', '').strip()  # Added .strip()
+    hr_emp_code = request.args.get('hr_emp_code', '').strip()  # Added .strip()
 
+    # Debug print
+    print(f"🔍 MASTER DASHBOARD FILTERS:")
+    print(f"   Status: '{status}' (empty={not status})")
+    print(f"   Type: '{grievance_type}' (empty={not grievance_type})")
+    print(f"   HR: '{hr_emp_code}' (empty={not hr_emp_code})")
+    print(f"   Date From: '{date_from}' (empty={not date_from})")
+    print(f"   Date To: '{date_to}' (empty={not date_to})")
+    print(f"   Search: '{search}' (empty={not search})")
+
+    # Build filter_args only with non-empty values
     filter_args = {}
-    if status:
+    if status:  # Only add if not empty
         filter_args['status'] = status
-    if grievance_type:
+    if grievance_type:  # Only add if not empty
         filter_args['grievance_type'] = grievance_type
     if date_from:
         filter_args['date_from'] = date_from
@@ -2074,10 +2085,28 @@ def master_dashboard():
     if hr_emp_code:
         filter_args['hr_emp_code'] = hr_emp_code
 
+    print(f"   Filter Args: {filter_args}")
+
     conn = db_pool.getconn()
     try:
         with conn.cursor() as c:
-            # Get stats
+            # ...existing code for type_status_counts...
+            c.execute('''
+    SELECT 
+        g.grievance_type as type, 
+        g.status,
+        COUNT(g.id) as count
+    FROM grievances g
+    GROUP BY g.grievance_type, g.status
+''')
+            type_status_counts = {}
+            for row in c.fetchall():
+                type_name = GRIEVANCE_TYPES.get(row[0], row[0])
+                status_val = row[1]
+                count = row[2]
+                type_status_counts[(type_name, status_val)] = count
+
+            # ...existing stats code...
             c.execute('''
                 SELECT
                     SUM(CASE WHEN status = 'Submitted' THEN 1 ELSE 0 END) as submitted,
@@ -2095,6 +2124,34 @@ def master_dashboard():
                 'reopened': stats_row[3] or 0,
                 'total': stats_row[4] or 0
             }
+            
+            # ...existing feedback stats code...
+            c.execute('''
+    SELECT 
+        COUNT(CASE WHEN f.rating IS NOT NULL THEN 1 END) as withfeedback,
+        COUNT(CASE WHEN f.rating IS NULL AND g.status = 'Resolved' THEN 1 END) as withoutfeedback,
+        COUNT(CASE WHEN f.rating = 1 THEN 1 END) as rating1,
+        COUNT(CASE WHEN f.rating = 2 THEN 1 END) as rating2,
+        COUNT(CASE WHEN f.rating = 3 THEN 1 END) as rating3,
+        COUNT(CASE WHEN f.rating = 4 THEN 1 END) as rating4,
+        COUNT(CASE WHEN f.rating = 5 THEN 1 END) as rating5
+    FROM grievances g
+    LEFT JOIN feedback f ON g.id = f.grievance_id
+    WHERE g.status = 'Resolved'
+''')
+            row = c.fetchone() or (0, 0, 0, 0, 0, 0, 0)
+
+            with_fb = row[0] or 0
+            without_fb = row[1] if row[1] is not None else max(0, (stats.get('resolved', 0) - with_fb))
+            stats.update({
+            "withfeedback": with_fb,
+            "withoutfeedback": without_fb,
+            "rating1": row[2] or 0,
+            "rating2": row[3] or 0,
+            "rating3": row[4] or 0,
+            "rating4": row[5] or 0,
+            "rating5": row[6] or 0,
+        })
 
             # Get HR staff
             c.execute('''
@@ -2104,7 +2161,7 @@ def master_dashboard():
             ''')
             hr_staff = c.fetchall()
 
-            # Get counts by grievance type - MOVED TO TOP TO ENSURE IT'S ALWAYS DEFINED
+            # Get counts by grievance type
             c.execute('''
                 SELECT grievance_type, COUNT(*) as count
                 FROM grievances
@@ -2119,7 +2176,7 @@ def master_dashboard():
                 type_name = GRIEVANCE_TYPES.get(g_type, g_type)
                 type_counts[type_name] = count
 
-            # Build the main query
+            # Build the main query - FIX: Only add status condition if status is provided
             query = '''
                 SELECT
                     g.id, g.emp_code, g.employee_name, g.employee_email,
@@ -2133,57 +2190,41 @@ def master_dashboard():
                 LEFT JOIN feedback f ON g.id = f.grievance_id
                 WHERE 1=1
             '''
-            # Calculate feedback statistics
-            c.execute('''
-    SELECT 
-        COUNT(CASE WHEN rating IS NOT NULL OR feedback_comments IS NOT NULL THEN 1 END) as with_feedback,
-        COUNT(CASE WHEN rating IS NULL AND feedback_comments IS NULL THEN 1 END) as without_feedback,
-        COUNT(CASE WHEN rating = 1 THEN 1 END) as rating_1,
-        COUNT(CASE WHEN rating = 2 THEN 1 END) as rating_2,
-        COUNT(CASE WHEN rating = 3 THEN 1 END) as rating_3,
-        COUNT(CASE WHEN rating = 4 THEN 1 END) as rating_4,
-        COUNT(CASE WHEN rating = 5 THEN 1 END) as rating_5
-    FROM grievances g
-    LEFT JOIN feedback f ON g.id = f.grievance_id
-    WHERE g.status = 'Resolved'
-''')
-
-            feedback_stats = c.fetchone()
-
-            stats['with_feedback'] = feedback_stats[0] or 0
-            stats['without_feedback'] = feedback_stats[1] or 0
-            stats['rating_1'] = feedback_stats[2] or 0
-            stats['rating_2'] = feedback_stats[3] or 0
-            stats['rating_3'] = feedback_stats[4] or 0
-            stats['rating_4'] = feedback_stats[5] or 0
-            stats['rating_5'] = feedback_stats[6] or 0
             params = []
             
-            # Apply filters
-            if status:
+            # Apply filters - FIX: Only add WHERE clause if value exists
+            if status:  # FIXED: Only add if not empty
                 query += " AND g.status = %s"
                 params.append(status)
+                print(f"   ✅ Adding status filter: {status}")
+            else:
+                print(f"   ℹ️ No status filter (showing all statuses)")
 
-            if grievance_type:
+            if grievance_type:  # FIXED: Only add if not empty
                 query += " AND g.grievance_type = %s"
                 params.append(grievance_type)
+                print(f"   ✅ Adding type filter: {grievance_type}")
 
             if date_from:
                 query += " AND g.submission_date::date >= %s"
                 params.append(date_from)
+                print(f"   ✅ Adding date_from filter: {date_from}")
 
             if date_to:
                 query += " AND g.submission_date::date <= %s"
                 params.append(date_to)
+                print(f"   ✅ Adding date_to filter: {date_to}")
 
-            if hr_emp_code:
+            if hr_emp_code:  # FIXED: Only add if not empty
                 query += " AND m.hr_emp_code = %s"
                 params.append(hr_emp_code)
+                print(f"   ✅ Adding HR filter: {hr_emp_code}")
 
             if search:
                 query += " AND (g.id ILIKE %s OR g.employee_name ILIKE %s OR g.subject ILIKE %s OR g.emp_code ILIKE %s)"
                 search_term = f"%{search}%"
                 params.extend([search_term, search_term, search_term, search_term])
+                print(f"   ✅ Adding search filter: {search}")
 
             # Get total count for pagination
             count_query = f"SELECT COUNT(*) FROM ({query}) AS count_query"
@@ -2191,11 +2232,15 @@ def master_dashboard():
             total_count = c.fetchone()[0]
             total_pages = (total_count + per_page - 1) // per_page
 
+            print(f"   📊 Total results: {total_count}")
+
             # Add pagination to main query
             query += " ORDER BY g.submission_date DESC LIMIT %s OFFSET %s"
             params.extend([per_page, offset])
 
             # Execute main query
+            print(f"   🔍 Final Query: {query}")
+            print(f"   🔍 With params: {params}")
             c.execute(query, params)
             grievances_data = c.fetchall()
 
@@ -2252,7 +2297,7 @@ def master_dashboard():
                                  page=page,
                                  total_pages=total_pages,
                                  filter_args=filter_args,
-                                 selected_status=status,
+                                 selected_status=status,  # FIXED: Pass the actual status value
                                  selected_type=grievance_type,
                                  selected_hr=hr_emp_code,
                                  search_query=search,
@@ -2260,7 +2305,8 @@ def master_dashboard():
                                  date_to=date_to,
                                  max=max,
                                  min=min,
-                                 user=session.get('user'))
+                                 user=session.get('user'),
+                                 type_status_counts=type_status_counts)
     finally:
         db_pool.putconn(conn)
 
