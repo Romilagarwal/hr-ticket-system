@@ -2053,15 +2053,14 @@ def master_dashboard():
     per_page = 10
     offset = (page - 1) * per_page
 
-    # Get filter parameters - FIX: Ensure empty string means no filter
-    status = request.args.get('status', '').strip()  # Added .strip()
-    grievance_type = request.args.get('grievance_type', '').strip()  # Added .strip()
-    date_from = request.args.get('date_from', '').strip()  # Added .strip()
-    date_to = request.args.get('date_to', '').strip()  # Added .strip()
-    search = request.args.get('search', '').strip()  # Added .strip()
-    hr_emp_code = request.args.get('hr_emp_code', '').strip()  # Added .strip()
+    # Get filter parameters
+    status = request.args.get('status', '').strip()
+    grievance_type = request.args.get('grievance_type', '').strip()
+    date_from = request.args.get('date_from', '').strip()
+    date_to = request.args.get('date_to', '').strip()
+    search = request.args.get('search', '').strip()
+    hr_emp_code = request.args.get('hr_emp_code', '').strip()
 
-    # Debug print
     print(f"🔍 MASTER DASHBOARD FILTERS:")
     print(f"   Status: '{status}' (empty={not status})")
     print(f"   Type: '{grievance_type}' (empty={not grievance_type})")
@@ -2072,9 +2071,9 @@ def master_dashboard():
 
     # Build filter_args only with non-empty values
     filter_args = {}
-    if status:  # Only add if not empty
+    if status:
         filter_args['status'] = status
-    if grievance_type:  # Only add if not empty
+    if grievance_type:
         filter_args['grievance_type'] = grievance_type
     if date_from:
         filter_args['date_from'] = date_from
@@ -2090,33 +2089,51 @@ def master_dashboard():
     conn = db_pool.getconn()
     try:
         with conn.cursor() as c:
-            # ...existing code for type_status_counts...
-            c.execute('''
-    SELECT 
-        g.grievance_type as type, 
-        g.status,
-        COUNT(g.id) as count
-    FROM grievances g
-    GROUP BY g.grievance_type, g.status
-''')
-            type_status_counts = {}
-            for row in c.fetchall():
-                type_name = GRIEVANCE_TYPES.get(row[0], row[0])
-                status_val = row[1]
-                count = row[2]
-                type_status_counts[(type_name, status_val)] = count
-
-            # ...existing stats code...
-            c.execute('''
+            # ✅ BUILD DYNAMIC STATS QUERY WITH FILTERS
+            stats_query = '''
                 SELECT
-                    SUM(CASE WHEN status = 'Submitted' THEN 1 ELSE 0 END) as submitted,
-                    SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-                    SUM(CASE WHEN status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
-                    SUM(CASE WHEN status = 'Reopened' THEN 1 ELSE 0 END) as reopened,
+                    SUM(CASE WHEN g.status = 'Submitted' THEN 1 ELSE 0 END) as submitted,
+                    SUM(CASE WHEN g.status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+                    SUM(CASE WHEN g.status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
+                    SUM(CASE WHEN g.status = 'Reopened' THEN 1 ELSE 0 END) as reopened,
                     COUNT(*) as total
-                FROM grievances
-            ''')
+                FROM grievances g
+                LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+                WHERE 1=1
+            '''
+            stats_params = []
+
+            # Apply same filters as main query
+            if status:
+                stats_query += " AND g.status = %s"
+                stats_params.append(status)
+
+            if grievance_type:
+                stats_query += " AND g.grievance_type = %s"
+                stats_params.append(grievance_type)
+
+            if date_from:
+                stats_query += " AND g.submission_date::date >= %s"
+                stats_params.append(date_from)
+
+            if date_to:
+                stats_query += " AND g.submission_date::date <= %s"
+                stats_params.append(date_to)
+
+            if hr_emp_code:
+                stats_query += " AND m.hr_emp_code = %s"
+                stats_params.append(hr_emp_code)
+
+            if search:
+                stats_query += " AND (g.id ILIKE %s OR g.employee_name ILIKE %s OR g.subject ILIKE %s OR g.emp_code ILIKE %s)"
+                search_term = f"%{search}%"
+                stats_params.extend([search_term, search_term, search_term, search_term])
+
+            # Execute dynamic stats query
+            print(f"📊 Executing stats query with filters...")
+            c.execute(stats_query, stats_params)
             stats_row = c.fetchone()
+            
             stats = {
                 'submitted': stats_row[0] or 0,
                 'in_progress': stats_row[1] or 0,
@@ -2124,34 +2141,109 @@ def master_dashboard():
                 'reopened': stats_row[3] or 0,
                 'total': stats_row[4] or 0
             }
-            
-            # ...existing feedback stats code...
-            c.execute('''
-    SELECT 
-        COUNT(CASE WHEN f.rating IS NOT NULL THEN 1 END) as withfeedback,
-        COUNT(CASE WHEN f.rating IS NULL AND g.status = 'Resolved' THEN 1 END) as withoutfeedback,
-        COUNT(CASE WHEN f.rating = 1 THEN 1 END) as rating1,
-        COUNT(CASE WHEN f.rating = 2 THEN 1 END) as rating2,
-        COUNT(CASE WHEN f.rating = 3 THEN 1 END) as rating3,
-        COUNT(CASE WHEN f.rating = 4 THEN 1 END) as rating4,
-        COUNT(CASE WHEN f.rating = 5 THEN 1 END) as rating5
-    FROM grievances g
-    LEFT JOIN feedback f ON g.id = f.grievance_id
-    WHERE g.status = 'Resolved'
-''')
+            print(f"   📊 Filtered Stats: {stats}")
+
+            # ✅ BUILD DYNAMIC FEEDBACK STATS WITH FILTERS
+            feedback_query = '''
+                SELECT 
+                    COUNT(CASE WHEN f.rating IS NOT NULL THEN 1 END) as withfeedback,
+                    COUNT(CASE WHEN f.rating IS NULL AND g.status = 'Resolved' THEN 1 END) as withoutfeedback,
+                    COUNT(CASE WHEN f.rating = 1 THEN 1 END) as rating1,
+                    COUNT(CASE WHEN f.rating = 2 THEN 1 END) as rating2,
+                    COUNT(CASE WHEN f.rating = 3 THEN 1 END) as rating3,
+                    COUNT(CASE WHEN f.rating = 4 THEN 1 END) as rating4,
+                    COUNT(CASE WHEN f.rating = 5 THEN 1 END) as rating5
+                FROM grievances g
+                LEFT JOIN feedback f ON g.id = f.grievance_id
+                LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+                WHERE g.status = 'Resolved'
+            '''
+            feedback_params = []
+
+            # Apply same filters (excluding status since we already filter for 'Resolved')
+            if grievance_type:
+                feedback_query += " AND g.grievance_type = %s"
+                feedback_params.append(grievance_type)
+
+            if date_from:
+                feedback_query += " AND g.submission_date::date >= %s"
+                feedback_params.append(date_from)
+
+            if date_to:
+                feedback_query += " AND g.submission_date::date <= %s"
+                feedback_params.append(date_to)
+
+            if hr_emp_code:
+                feedback_query += " AND m.hr_emp_code = %s"
+                feedback_params.append(hr_emp_code)
+
+            if search:
+                feedback_query += " AND (g.id ILIKE %s OR g.employee_name ILIKE %s OR g.subject ILIKE %s OR g.emp_code ILIKE %s)"
+                search_term = f"%{search}%"
+                feedback_params.extend([search_term, search_term, search_term, search_term])
+
+            c.execute(feedback_query, feedback_params)
             row = c.fetchone() or (0, 0, 0, 0, 0, 0, 0)
 
             with_fb = row[0] or 0
             without_fb = row[1] if row[1] is not None else max(0, (stats.get('resolved', 0) - with_fb))
+            
             stats.update({
-            "withfeedback": with_fb,
-            "withoutfeedback": without_fb,
-            "rating1": row[2] or 0,
-            "rating2": row[3] or 0,
-            "rating3": row[4] or 0,
-            "rating4": row[5] or 0,
-            "rating5": row[6] or 0,
-        })
+                "withfeedback": with_fb,
+                "withoutfeedback": without_fb,
+                "rating1": row[2] or 0,
+                "rating2": row[3] or 0,
+                "rating3": row[4] or 0,
+                "rating4": row[5] or 0,
+                "rating5": row[6] or 0,
+            })
+
+            # ✅ BUILD DYNAMIC TYPE-STATUS COUNTS WITH FILTERS
+            type_status_query = '''
+                SELECT 
+                    g.grievance_type as type, 
+                    g.status,
+                    COUNT(g.id) as count
+                FROM grievances g
+                LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+                WHERE 1=1
+            '''
+            type_status_params = []
+
+            if status:
+                type_status_query += " AND g.status = %s"
+                type_status_params.append(status)
+
+            if grievance_type:
+                type_status_query += " AND g.grievance_type = %s"
+                type_status_params.append(grievance_type)
+
+            if date_from:
+                type_status_query += " AND g.submission_date::date >= %s"
+                type_status_params.append(date_from)
+
+            if date_to:
+                type_status_query += " AND g.submission_date::date <= %s"
+                type_status_params.append(date_to)
+
+            if hr_emp_code:
+                type_status_query += " AND m.hr_emp_code = %s"
+                type_status_params.append(hr_emp_code)
+
+            if search:
+                type_status_query += " AND (g.id ILIKE %s OR g.employee_name ILIKE %s OR g.subject ILIKE %s OR g.emp_code ILIKE %s)"
+                search_term = f"%{search}%"
+                type_status_params.extend([search_term, search_term, search_term, search_term])
+
+            type_status_query += " GROUP BY g.grievance_type, g.status"
+
+            c.execute(type_status_query, type_status_params)
+            type_status_counts = {}
+            for row in c.fetchall():
+                type_name = GRIEVANCE_TYPES.get(row[0], row[0])
+                status_val = row[1]
+                count = row[2]
+                type_status_counts[(type_name, status_val)] = count
 
             # Get HR staff
             c.execute('''
@@ -2161,13 +2253,43 @@ def master_dashboard():
             ''')
             hr_staff = c.fetchall()
 
-            # Get counts by grievance type
-            c.execute('''
-                SELECT grievance_type, COUNT(*) as count
-                FROM grievances
-                GROUP BY grievance_type
-                ORDER BY count DESC
-            ''')
+            # ✅ BUILD DYNAMIC TYPE COUNTS WITH FILTERS
+            type_counts_query = '''
+                SELECT g.grievance_type, COUNT(*) as count
+                FROM grievances g
+                LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+                WHERE 1=1
+            '''
+            type_counts_params = []
+
+            if status:
+                type_counts_query += " AND g.status = %s"
+                type_counts_params.append(status)
+
+            if grievance_type:
+                type_counts_query += " AND g.grievance_type = %s"
+                type_counts_params.append(grievance_type)
+
+            if date_from:
+                type_counts_query += " AND g.submission_date::date >= %s"
+                type_counts_params.append(date_from)
+
+            if date_to:
+                type_counts_query += " AND g.submission_date::date <= %s"
+                type_counts_params.append(date_to)
+
+            if hr_emp_code:
+                type_counts_query += " AND m.hr_emp_code = %s"
+                type_counts_params.append(hr_emp_code)
+
+            if search:
+                type_counts_query += " AND (g.id ILIKE %s OR g.employee_name ILIKE %s OR g.subject ILIKE %s OR g.emp_code ILIKE %s)"
+                search_term = f"%{search}%"
+                type_counts_params.extend([search_term, search_term, search_term, search_term])
+
+            type_counts_query += " GROUP BY g.grievance_type ORDER BY count DESC"
+
+            c.execute(type_counts_query, type_counts_params)
             grievance_type_counts = c.fetchall()
             
             # Convert to a dictionary with human-readable names
@@ -2176,7 +2298,7 @@ def master_dashboard():
                 type_name = GRIEVANCE_TYPES.get(g_type, g_type)
                 type_counts[type_name] = count
 
-            # Build the main query - FIX: Only add status condition if status is provided
+            # Build the main query for grievances list
             query = '''
                 SELECT
                     g.id, g.emp_code, g.employee_name, g.employee_email,
@@ -2192,15 +2314,15 @@ def master_dashboard():
             '''
             params = []
             
-            # Apply filters - FIX: Only add WHERE clause if value exists
-            if status:  # FIXED: Only add if not empty
+            # Apply filters
+            if status:
                 query += " AND g.status = %s"
                 params.append(status)
                 print(f"   ✅ Adding status filter: {status}")
             else:
                 print(f"   ℹ️ No status filter (showing all statuses)")
 
-            if grievance_type:  # FIXED: Only add if not empty
+            if grievance_type:
                 query += " AND g.grievance_type = %s"
                 params.append(grievance_type)
                 print(f"   ✅ Adding type filter: {grievance_type}")
@@ -2215,7 +2337,7 @@ def master_dashboard():
                 params.append(date_to)
                 print(f"   ✅ Adding date_to filter: {date_to}")
 
-            if hr_emp_code:  # FIXED: Only add if not empty
+            if hr_emp_code:
                 query += " AND m.hr_emp_code = %s"
                 params.append(hr_emp_code)
                 print(f"   ✅ Adding HR filter: {hr_emp_code}")
@@ -2297,7 +2419,7 @@ def master_dashboard():
                                  page=page,
                                  total_pages=total_pages,
                                  filter_args=filter_args,
-                                 selected_status=status,  # FIXED: Pass the actual status value
+                                 selected_status=status,
                                  selected_type=grievance_type,
                                  selected_hr=hr_emp_code,
                                  search_query=search,
