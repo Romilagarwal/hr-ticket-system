@@ -6,6 +6,7 @@
     <title>HR Dashboard - ASK HR</title>
     <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile_fixes.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <style>
         * {
@@ -631,6 +632,7 @@
         </div>
 
         {% if grievances %}
+            <div class="table-responsive">
             <table class="dashboard-table">
                 <thead>
                     <tr>
@@ -709,6 +711,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
 
             <!-- Pagination -->
             <div class="pagination">

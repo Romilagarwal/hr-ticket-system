@@ -190,22 +190,5 @@ Comprehensive analytics dashboard provides:
 - WhatsApp Business API for mobile notifications
 - SMTP services for email communications
 
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a new branch (`git checkout -b feature/your-feature`)
-3. Make your changes
-4. Run tests if available
-5. Commit your changes (`git commit -am 'Add new feature'`)
-6. Push to the branch (`git push origin feature/your-feature`)
-7. Create a new Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
 
 © 2025 HR Ticket Management System. All rights reserved.
