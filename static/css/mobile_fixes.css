@@ -1,0 +1,78 @@
+/* Mobile responsiveness fixes for HR Ticket System templates */
+
+/* Make containers fluid on small screens */
+@media (max-width: 900px) {
+  .container {
+    max-width: 100% !important;
+    padding: 12px !important;
+    margin: 12px !important;
+  }
+
+  .dashboard-box, .login-box, .header, .stats-grid, .filters, .status-table, .dashboard-table {
+    padding: 12px !important;
+  }
+
+  /* Make tables horizontally scrollable on narrow screens */
+  .status-table, .dashboard-table, table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .status-table th, .status-table td, table th, table td {
+    white-space: nowrap;
+  }
+
+  /* Hide helper columns on mobile */
+  .hidden-mobile { display: none !important; }
+
+  /* Make form controls, buttons full width for easier tapping */
+  .form-control, input[type="text"], input[type="email"], input[type="tel"], select, textarea, .login-btn, .btn, .query-btn, .submit-btn, .new-grievance-btn, .logout-btn {
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .login-options, .auth-toggle, .user-actions {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* Shrink headers/images */
+  .logo img, .navitasys-logo {
+    max-width: 120px !important;
+    height: auto !important;
+  }
+
+  /* Reduce shadows and spacing */
+  .dashboard-box, .login-box, .header, .status-table {
+    box-shadow: none !important;
+  }
+
+  .modal-dialog { max-width: 95% !important; margin: 12px auto !important; }
+
+  /* Custom modal styles for in-page modals */
+  .modal { padding: 12px; }
+  .modal .modal-content { max-width: 98%; margin: 0 auto; box-sizing: border-box; }
+  .modal .modal-content { max-height: 80vh; overflow-y: auto; }
+}
+
+
+/* Helpful utility classes */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Improve tap targets */
+.button-block {
+  display: block;
+  width: 100%;
+}
+
+/* Ensure images scale */
+img {
+  max-width: 100%;
+  height: auto;
+}

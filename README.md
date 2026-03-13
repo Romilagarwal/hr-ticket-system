@@ -69,7 +69,7 @@ A comprehensive HR Ticket Management System designed to streamline employee requ
    pip install -r requirements.txt
    ```
 
-4. **Set up your environment variables** (see [Environment Configuration](#environment-configuration))
+4. **Set up your environment variables and private config** (see [Environment Configuration](#environment-configuration))
 
 5. **Initialize the database**
    ```bash
@@ -83,11 +83,16 @@ A comprehensive HR Ticket Management System designed to streamline employee requ
 
 ## 🔧 Environment Configuration
 
-Create a `.env` file in the root directory with the following variables (use `.env.example` as a template):
+1. Copy `.env.example` to `.env` and fill in real values.
+2. Copy `config_private.example.py` to `config_private.py` and add real HR users/mappings.
+3. Keep `.env` and `config_private.py` out of git (both are ignored).
+
+Use the following `.env` variables:
 
 ```env
 # Server Configuration
 SECRET_KEY=your_secret_key_here
+COMPANY_EMAIL_DOMAIN=example.com
 SERVER_HOST=http://127.0.0.1:8112
 SERVER_NAME=127.0.0.1:8112
 PREFERRED_URL_SCHEME=http
@@ -101,10 +106,12 @@ DB_PORT=5432
 
 # Email Configuration
 MAIL_SERVER=your_mail_server
-MAIL_PORT=25
+MAIL_PORT=587
+MAIL_USE_TLS=true
 MAIL_USERNAME=your_email_username
-FROM_MAIL=MAIL_USERNAME
-USE_TLS=False
+MAIL_PASSWORD=your_email_password
+MAIL_DEFAULT_SENDER=your_email_username
+USE_TLS=true
 
 # WhatsApp API Configuration
 META_ACCESS_TOKEN=your_meta_token_here
@@ -114,6 +121,13 @@ WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
 SAP_API_BASE_URL=https://api.example.com
 SAP_API_USERNAME=your_api_username
 SAP_API_PASSWORD=your_api_password
+
+# Optional defaults when no HR mapping is found
+DEFAULT_HR_EMAIL=hr-admin@yourcompany.com
+DEFAULT_HR_NAME=HR Admin
+
+# Optional test-email route recipient
+TEST_EMAIL_RECIPIENT=
 ```
 
 ## 📋 Usage

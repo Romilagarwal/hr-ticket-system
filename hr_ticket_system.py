@@ -29,6 +29,20 @@ from email import encoders
 
 load_dotenv()
 
+try:
+    from config_private import (
+        HR_USERS,
+        GRIEVANCE_MAPPINGS,
+        DEFAULT_HR_EMAIL,
+        DEFAULT_HR_NAME,
+    )
+except ImportError:
+    # Public repo fallback: keep sensitive defaults out of source.
+    HR_USERS = []
+    GRIEVANCE_MAPPINGS = []
+    DEFAULT_HR_EMAIL = os.environ.get('DEFAULT_HR_EMAIL', '')
+    DEFAULT_HR_NAME = os.environ.get('DEFAULT_HR_NAME', 'HR Admin')
+
 app = Flask(__name__)
 
 REMINDER_INITIAL_THRESHOLD_HOURS = 72       
@@ -52,7 +66,8 @@ app.secret_key = os.environ.get('SECRET_KEY')
 
 # Port and LAN host defaults
 PORT = int(os.environ.get('PORT', 8112))
-LAN_HOST = os.environ.get('LAN_HOST', '172.19.66.141')
+LAN_HOST = os.environ.get('LAN_HOST', '127.0.0.1')
+COMPANY_EMAIL_DOMAIN = os.environ.get('COMPANY_EMAIL_DOMAIN', 'example.com').strip().lower()
 
 # Existing SERVER_HOST env var (if provided)
 SERVER_HOST = os.environ.get('SERVER_HOST')
@@ -124,6 +139,7 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
+app.jinja_env.globals['COMPANY_EMAIL_DOMAIN'] = COMPANY_EMAIL_DOMAIN
 
 mail = Mail(app)
 
@@ -320,22 +336,7 @@ def init_db():
                 END $$;
             ''')
 
-            hr_users = [
-                ('9022246', 'Mr. Sunil', '7419990925', 'sunil.kumar@nvtpower.com', 'hr'),
-                ('9023574', 'Mr. Dipanshu', '9306709009', 'Dipanshu.Dhiman@nvtpower.com', 'hr'),
-                ('9025263', 'Mrs. Priyanka', '9967040263', 'Priyanka.Mehta@nvtpower.com', 'hr'),
-                ('9025432', 'Ms. Yashica', '9138699004', 'yashica.garg@nvtpower.com', 'hr'),
-                ('9025398', 'Mr. Saveen', '8800505557', 'Saveen.Bhutani@nvtpower.com', 'hr'),
-                ('9025649', 'Ms. Taru', '7217701675', 'taru.kaushik@nvtpower.com', 'hr'),
-                ('9022826', 'Mr. Pawan', '9765497863', 'pawan.tyagi@nvtpower.com', 'hr'),
-                ('9025044', 'Ms.Veena Sharma', '7419921280', 'Veena.sharma@nvtpower.com', 'hr'),
-                ('9025398', 'Mr. Saveen', '8800505557', 'Saveen.Bhutani@nvtpower.com', 'admin'),
-                ('9023422', 'Mr. Mohit Agarwal', '7622011462', 'mohit.agarwal@nvtpower.com', 'admin'),
-                ('ADMIN001', 'System Admin', '8318436133', 'romil.agarwal@nvtpower.com', 'admin'),
-                ('9025649', 'Ms. Taru', '7217701675', 'taru.kaushik@nvtpower.com', 'admin'),
-            ]
-
-            for user in hr_users:
+            for user in HR_USERS:
                 c.execute('''INSERT INTO users
                 (emp_code, employee_name, employee_phone, employee_email, role)
                 VALUES (%s, %s, %s, %s, %s)
@@ -346,32 +347,7 @@ def init_db():
                     role = EXCLUDED.role
               ''', user)
 
-            grievance_mappings = [
-                ('leave_attendance', '9022246'),
-                ('salary_queries', '9023574'),
-                ('policies', '9025263'),
-                ('reimbursement', '9025432'),
-                ('weconnect', '9025432'),
-                ('promotion_performance', '9025398'),
-                ('npower_issue', '9022246'),
-                ('ascent_issue', '9022246'),
-                ('hr_forms_documents', '9025649'),
-                ('exit_settlement', '9023574'),
-                ('letters', '9025649'),
-                ('confirmation', '9022246'),
-                ('others', '9022246'),
-                ('recruitment', '9025263'),
-                ('provident_fund', '9023574'),
-                ('mediclaim', '9023574'),
-                ('canteen_food', '9025044'),
-                ('transportation', '9025044'),
-                ('reward', '9022246'),
-                ('address_proof', '9022246'),
-                ('id_card', '9025649'),
-                ('income_tax', '9023574')
-            ]
-
-            for mapping in grievance_mappings:
+            for mapping in GRIEVANCE_MAPPINGS:
                 c.execute('''
                     INSERT INTO hr_grievance_mapping (grievance_type, hr_emp_code)
                     VALUES (%s, %s)
@@ -744,6 +720,8 @@ def submit_grievance():
         email_subject = f"New Query Submitted - {subject} (ID: {grievance_id})"
 
         hr_email = None
+        hr_phone = None
+        hr_name = DEFAULT_HR_NAME
         try:
             with conn.cursor() as c:
                 c.execute('''
@@ -760,12 +738,12 @@ def submit_grievance():
                     hr_phone = hr_info[2]
                     print(f"✅ Found HR email: {hr_email} and HR phone: {hr_phone} for grievance type: {grievance_type}")
                 else:
-                    hr_email = 'mohit.agarwal@nvtpower.com'
-                    hr_name = 'Mohit Agarwal'
+                    hr_email = DEFAULT_HR_EMAIL
+                    hr_name = DEFAULT_HR_NAME
                     print(f"⚠️ No HR mapping found for type: {grievance_type}, using default")
         except Exception as e:
-            hr_email = 'mohit.agarwal@nvtpower.com'
-            hr_name = 'Mohit Agarwal'
+            hr_email = DEFAULT_HR_EMAIL
+            hr_name = DEFAULT_HR_NAME
             print(f"❌ Error finding HR email: {str(e)}")
         email_body = f"""
 <html>
@@ -1199,10 +1177,13 @@ def submit_feedback(grievance_id):
 @app.route('/test-email')
 def test_email():
     try:
+        test_recipient = os.environ.get('TEST_EMAIL_RECIPIENT', DEFAULT_HR_EMAIL)
+        if not test_recipient:
+            return "<h1>❌ Flask-Mail Test Failed!</h1><p>No TEST_EMAIL_RECIPIENT configured.</p><a href='/'>Back to Form</a>"
         with app.app_context():
             msg = Message(
                 subject="Flask-Mail Connection Test",
-                recipients=['romil.agarwal@nvtpower.com'],
+                recipients=[test_recipient],
                 body="This is a test message to verify Flask-Mail connection."
             )
             mail.send(msg)
@@ -3466,7 +3447,7 @@ def get_employee_sap():
         if isinstance(email_list, list):
             for email_item in email_list:
                 email_address = safe_get(email_item, 'emailAddress')
-                if email_address and '@nvtpower.com' in email_address.lower():
+                if email_address and email_address.lower().endswith(f"@{COMPANY_EMAIL_DOMAIN}"):
                     work_email = email_address
                     print(f"  ✅ Found work email: {work_email}")
                     break 
