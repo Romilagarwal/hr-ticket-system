@@ -181,6 +181,29 @@ def get_upload_path(user_type, emp_code):
     os.makedirs(base_dir, exist_ok=True)
     return base_dir
 
+def get_hr_contact(c, grievance_id=None, grievance_type=None):
+    """Resolve HR contact using grievance override first, then type mapping."""
+    hr_emp_code = None
+    if grievance_id:
+        c.execute('''
+            SELECT COALESCE(g.assigned_hr_emp_code, m.hr_emp_code)
+            FROM grievances g
+            LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+            WHERE g.id = %s
+        ''', (grievance_id,))
+        row = c.fetchone()
+        hr_emp_code = row[0] if row else None
+    elif grievance_type:
+        c.execute('SELECT hr_emp_code FROM hr_grievance_mapping WHERE grievance_type = %s', (grievance_type,))
+        row = c.fetchone()
+        hr_emp_code = row[0] if row else None
+
+    if not hr_emp_code:
+        return None
+
+    c.execute('SELECT employee_email, employee_name, employee_phone FROM users WHERE emp_code = %s', (hr_emp_code,))
+    return c.fetchone()
+
 def init_db():
     conn = db_pool.getconn()
     try:
@@ -318,6 +341,19 @@ def init_db():
                         WHERE table_name='grievances' AND column_name='reply_count'
                     ) THEN
                         ALTER TABLE grievances ADD COLUMN reply_count INTEGER DEFAULT 0;
+                    END IF;
+                END $$;
+            ''')
+            c.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_name='grievances'
+                        AND column_name='assigned_hr_emp_code'
+                    ) THEN
+                        ALTER TABLE grievances ADD COLUMN assigned_hr_emp_code TEXT;
                     END IF;
                 END $$;
             ''')
@@ -1103,13 +1139,7 @@ def submit_feedback(grievance_id):
                 gr = c.fetchone()
                 emp_code, employee_name, employee_email, employee_phone, grievance_type, subject = gr
 
-                c.execute('''
-                    SELECT u.employee_email, u.employee_name, u.employee_phone
-                    FROM hr_grievance_mapping m
-                    JOIN users u ON m.hr_emp_code = u.emp_code
-                    WHERE m.grievance_type = %s
-                ''', (grievance_type,))
-                hr_info = c.fetchone()
+                hr_info = get_hr_contact(c, grievance_id=grievance_id)
                 hr_email, hr_name, hr_phone = hr_info if hr_info else (None, None, None)
 
                 notify_subject = f"Query Reopened - {subject} (ID: {grievance_id})"
@@ -1901,30 +1931,44 @@ def hr_dashboard():
         filter_args['search'] = search
 
     emp_code = user['emp_code']
+    is_admin = user.get('role') == 'admin'
     conn = db_pool.getconn()
     try:
         with conn.cursor() as c:
-            c.execute('''
-                SELECT grievance_type FROM hr_grievance_mapping
-                WHERE hr_emp_code = %s
-            ''', (emp_code,))
-
-            assigned_types = [row[0] for row in c.fetchall()]
+            if is_admin:
+                assigned_types = list(GRIEVANCE_TYPES.keys())
+            else:
+                c.execute('''
+                    SELECT DISTINCT g.grievance_type
+                    FROM grievances g
+                    LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+                    WHERE g.assigned_hr_emp_code = %s
+                       OR (g.assigned_hr_emp_code IS NULL AND m.hr_emp_code = %s)
+                    UNION
+                    SELECT grievance_type
+                    FROM hr_grievance_mapping
+                    WHERE hr_emp_code = %s
+                ''', (emp_code, emp_code, emp_code))
+                assigned_types = [row[0] for row in c.fetchall()]
             
             c.execute("SELECT emp_code, employee_name FROM users WHERE role = 'hr' ORDER BY employee_name")
             hr_staff = c.fetchall()
             
-            c.execute('''
+            stats_query = '''
                 SELECT
-                    SUM(CASE WHEN status = 'Submitted' THEN 1 ELSE 0 END) as submitted,
-                    SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-                    SUM(CASE WHEN status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
-                    SUM(CASE WHEN status = 'Reopened' THEN 1 ELSE 0 END) as reopened,
+                    SUM(CASE WHEN g.status = 'Submitted' THEN 1 ELSE 0 END) as submitted,
+                    SUM(CASE WHEN g.status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+                    SUM(CASE WHEN g.status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
+                    SUM(CASE WHEN g.status = 'Reopened' THEN 1 ELSE 0 END) as reopened,
                     COUNT(*) as total
-                FROM grievances
-                WHERE grievance_type IN %s
-            ''', (
-                tuple(assigned_types),))
+                FROM grievances g
+                LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+                WHERE {assignment_condition}
+            '''.format(
+                assignment_condition='1=1' if is_admin else '(g.assigned_hr_emp_code = %s OR (g.assigned_hr_emp_code IS NULL AND m.hr_emp_code = %s))'
+            )
+            stats_params = [] if is_admin else [emp_code, emp_code]
+            c.execute(stats_query, stats_params)
             stats_row = c.fetchone()
             stats = {
                 'submitted': stats_row[0] or 0,
@@ -1933,9 +1977,6 @@ def hr_dashboard():
                 'reopened': stats_row[3] or 0,
                 'total': stats_row[4] or 0
             }
-
-            if user.get('role') == 'admin' and not assigned_types:
-                assigned_types = list(GRIEVANCE_TYPES.keys())
 
             if not assigned_types:
                 return render_template('hr_dashboard.html',
@@ -1955,17 +1996,18 @@ def hr_dashboard():
                         g.subject, g.status, g.submission_date, g.attachment_path,
                         f.rating, f.satisfaction, f.feedback_comments
                         FROM grievances g
+                        LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
                         LEFT JOIN feedback f ON g.id = f.grievance_id
                         WHERE '''
 
-            query_conditions = ["g.grievance_type IN %s"]
-            query_params = [tuple(assigned_types)]
+            query_conditions = ['1=1' if is_admin else '(g.assigned_hr_emp_code = %s OR (g.assigned_hr_emp_code IS NULL AND m.hr_emp_code = %s))']
+            query_params = [] if is_admin else [emp_code, emp_code]
 
             if status:
                 query_conditions.append("status = %s")
                 query_params.append(status)
 
-            if grievance_type and grievance_type in assigned_types:
+            if grievance_type:
                 query_conditions.append("grievance_type = %s")
                 query_params.append(grievance_type)
 
@@ -2011,7 +2053,16 @@ def hr_dashboard():
                     'satisfaction': g[10],
                     'feedback_comments': g[11],
                 })
-            c.execute('''SELECT COUNT(*) FROM grievances WHERE grievance_type IN %s''', (tuple(assigned_types),))
+            count_query = '''
+                SELECT COUNT(*)
+                FROM grievances g
+                LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+                WHERE {assignment_condition}
+            '''.format(
+                assignment_condition='1=1' if is_admin else '(g.assigned_hr_emp_code = %s OR (g.assigned_hr_emp_code IS NULL AND m.hr_emp_code = %s))'
+            )
+            count_params = [] if is_admin else [emp_code, emp_code]
+            c.execute(count_query, count_params)
             total_count = c.fetchone()[0]
 
             total_pages = (total_count + per_page - 1) // per_page
@@ -2178,7 +2229,7 @@ def master_dashboard():
                 stats_params.append(date_to)
 
             if hr_emp_code:
-                stats_query += " AND m.hr_emp_code = %s"
+                stats_query += " AND COALESCE(g.assigned_hr_emp_code, m.hr_emp_code) = %s"
                 stats_params.append(hr_emp_code)
 
             if search:
@@ -2231,7 +2282,7 @@ def master_dashboard():
                 feedback_params.append(date_to)
 
             if hr_emp_code:
-                feedback_query += " AND m.hr_emp_code = %s"
+                feedback_query += " AND COALESCE(g.assigned_hr_emp_code, m.hr_emp_code) = %s"
                 feedback_params.append(hr_emp_code)
 
             if search:
@@ -2284,7 +2335,7 @@ def master_dashboard():
                 type_status_params.append(date_to)
 
             if hr_emp_code:
-                type_status_query += " AND m.hr_emp_code = %s"
+                type_status_query += " AND COALESCE(g.assigned_hr_emp_code, m.hr_emp_code) = %s"
                 type_status_params.append(hr_emp_code)
 
             if search:
@@ -2336,7 +2387,7 @@ def master_dashboard():
                 type_counts_params.append(date_to)
 
             if hr_emp_code:
-                type_counts_query += " AND m.hr_emp_code = %s"
+                type_counts_query += " AND COALESCE(g.assigned_hr_emp_code, m.hr_emp_code) = %s"
                 type_counts_params.append(hr_emp_code)
 
             if search:
@@ -2365,7 +2416,7 @@ def master_dashboard():
                     g.description, g.updated_at
                 FROM grievances g
                 LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
-                LEFT JOIN users u ON m.hr_emp_code = u.emp_code
+                LEFT JOIN users u ON COALESCE(g.assigned_hr_emp_code, m.hr_emp_code) = u.emp_code
                 LEFT JOIN feedback f ON g.id = f.grievance_id
                 WHERE 1=1
             '''
@@ -2395,7 +2446,7 @@ def master_dashboard():
                 print(f"   ✅ Adding date_to filter: {date_to}")
 
             if hr_emp_code:
-                query += " AND m.hr_emp_code = %s"
+                query += " AND COALESCE(g.assigned_hr_emp_code, m.hr_emp_code) = %s"
                 params.append(hr_emp_code)
                 print(f"   ✅ Adding HR filter: {hr_emp_code}")
 
@@ -2671,13 +2722,7 @@ def edit_grievance(grievance_id):
 
                 
                 if grievance_type == old_grievance_type:
-                    c.execute('''
-                        SELECT u.employee_email, u.employee_name, u.employee_phone
-                        FROM hr_grievance_mapping m
-                        JOIN users u ON m.hr_emp_code = u.emp_code
-                        WHERE m.grievance_type = %s
-                    ''', (grievance_type,))
-                    hr_info = c.fetchone()
+                    hr_info = get_hr_contact(c, grievance_id=grievance_id)
                     if hr_info:
                         hr_email, hr_name, hr_phone = hr_info
                         hr_subject = f"Query Updated (ID: {grievance_id})"
@@ -2715,13 +2760,7 @@ def edit_grievance(grievance_id):
                             )
                 else:
                     
-                    c.execute('''
-                        SELECT u.employee_email, u.employee_name, u.employee_phone
-                        FROM hr_grievance_mapping m
-                        JOIN users u ON m.hr_emp_code = u.emp_code
-                        WHERE m.grievance_type = %s
-                    ''', (grievance_type,))
-                    new_hr_info = c.fetchone()
+                    new_hr_info = get_hr_contact(c, grievance_type=grievance_type)
                     if new_hr_info:
                         new_hr_email, new_hr_name, new_hr_phone = new_hr_info
                         hr_subject = f"New Query Assigned (ID: {grievance_id})"
@@ -2792,13 +2831,7 @@ def delete_grievance_employee():
                 return redirect(url_for('my_queries'))
 
             
-            c.execute('''
-                SELECT u.employee_email, u.employee_name, u.employee_phone
-                FROM hr_grievance_mapping m
-                JOIN users u ON m.hr_emp_code = u.emp_code
-                WHERE m.grievance_type = %s
-            ''', (gr[5],))
-            hr_info = c.fetchone()
+            hr_info = get_hr_contact(c, grievance_id=grievance_id)
             hr_email, hr_name, hr_phone = hr_info if hr_info else (None, None, None)
 
             
@@ -3052,9 +3085,9 @@ def get_current_hr(grievance_id):
     try:
         with conn.cursor() as c:
             c.execute('''
-                SELECT m.hr_emp_code
+                SELECT COALESCE(g.assigned_hr_emp_code, m.hr_emp_code)
                 FROM grievances g
-                JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
+                LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
                 WHERE g.id = %s
             ''', (grievance_id,))
             result = c.fetchone()
@@ -3077,7 +3110,6 @@ def reassign_grievance():
     grievance_id = request.form.get('grievance_id')
     new_hr_emp_code = request.form.get('new_hr')
     reason = request.form.get('reason')
-    current_type = request.form.get('current_type')
 
     if not all([grievance_id, new_hr_emp_code, reason]):
         flash('Missing required information for the change', 'error')
@@ -3091,16 +3123,25 @@ def reassign_grievance():
         with conn.cursor() as c:
             
             c.execute('''
-                SELECT g.id, g.employee_name, g.grievance_type, g.subject, u.employee_name, u.employee_email
+                SELECT g.id, g.employee_name, g.grievance_type, g.subject,
+                       u.employee_name, u.employee_email,
+                       COALESCE(g.assigned_hr_emp_code, m.hr_emp_code) AS current_hr_emp_code
                 FROM grievances g
                 LEFT JOIN hr_grievance_mapping m ON g.grievance_type = m.grievance_type
-                LEFT JOIN users u ON m.hr_emp_code = u.emp_code
+                LEFT JOIN users u ON COALESCE(g.assigned_hr_emp_code, m.hr_emp_code) = u.emp_code
                 WHERE g.id = %s
             ''', (grievance_id,))
 
             grievance = c.fetchone()
             if not grievance:
                 flash('Query not found', 'error')
+                if user.get('role') == 'admin':
+                    return redirect(url_for('master_dashboard'))
+                else:
+                    return redirect(url_for('hr_dashboard'))
+
+            if grievance[6] == new_hr_emp_code:
+                flash('This query is already assigned to the selected HR.', 'info')
                 if user.get('role') == 'admin':
                     return redirect(url_for('master_dashboard'))
                 else:
@@ -3118,18 +3159,10 @@ def reassign_grievance():
 
             
             c.execute('''
-                INSERT INTO hr_grievance_mapping (grievance_type, hr_emp_code)
-                VALUES (%s, %s)
-                ON CONFLICT (grievance_type) DO UPDATE
-                SET hr_emp_code = EXCLUDED.hr_emp_code
-            ''', (f"temp_{grievance_id}", new_hr_emp_code))
-
-            
-            c.execute('''
                 UPDATE grievances
-                SET grievance_type = %s
+                SET assigned_hr_emp_code = %s, updated_at = %s
                 WHERE id = %s
-            ''', (f"temp_{grievance_id}", grievance_id))
+            ''', (new_hr_emp_code, datetime.now(), grievance_id))
 
             
             c.execute('''

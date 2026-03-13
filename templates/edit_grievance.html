@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Query</title>
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile_fixes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at 20% 30%, #e3eafc 0%, #cfd9e6 60%, #b0bfcf 100%);
+            min-height: 100vh;
+            color: #2c3e50;
+            margin: 0;
+        }
+        .company-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: white;
+            color:#1e3a8a;
+            padding: 20px 40px;
+            position: relative;
+            z-index: 10;
+        }
+        .company-left {
+            text-align: left;
+        }
+        .company-left h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+        }
+        .company-left p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.8;
+            color: white;
+        }
+        .company-right {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: right;
+            color: white;
+        }
+        .container {
+            max-width: 650px;
+            margin: 30px auto 40px auto;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1;
+            position: relative;
+        }
+        .header {
+            background: linear-gradient(120deg, #f7fafc 60%, #e3eafc 100%);
+            padding: 16px 30px 18px 30px;
+            border-radius: 18px 18px 0 0;
+            box-shadow: 0 8px 32px rgba(44, 90, 160, 0.08);
+            text-align: center;
+            margin-bottom: 0;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .header img {
+            width: 120px;
+            margin-bottom: 10px;
+        }
+        .header h2 {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .form-container {
+            background: #fff;
+            padding: 34px 30px 28px 30px;
+            border-radius: 0 0 28px 28px;
+            box-shadow: 0 8px 32px rgba(44, 90, 160, 0.08);
+            width: 100%;
+            position: relative;
+            z-index: 1;
+        }
+        .form-container h2 {
+            color: #4a6fa5;
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 7px;
+            font-weight: 600;
+            color: #4a6fa5;
+        }
+        .required {
+            color: #e74c3c;
+        }
+        input[type="text"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px 13px;
+            border: 2px solid #e3eafc;
+            border-radius: 9px;
+            font-size: 15px;
+            background: #f7fafc;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            margin-top: 2px;
+        }
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #4a6fa5;
+            box-shadow: 0 0 0 3px #b0c4de22;
+            background: #fff;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 110px;
+        }
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            padding: 12px 13px;
+            border: 2px dashed #b0c4de;
+            border-radius: 9px;
+            background: #f7fafc;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            font-weight: 500;
+            color: #4a6fa5;
+            font-size: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .file-upload-label:hover {
+            background: #e3eafc;
+            border-color: #4a6fa5;
+            color: #4a6fa5;
+            transform: scale(1.01);
+        }
+        .submit-btn {
+            background: linear-gradient(135deg, #4a6fa5 0%, #b0c4de 100%);
+            color: white;
+            padding: 15px 0;
+            border: none;
+            border-radius: 9px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            margin-top: 20px;
+            box-shadow: 0 4px 18px #b0c4de22;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .submit-btn:hover {
+            background: linear-gradient(135deg, #b0c4de 0%, #4a6fa5 100%);
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 8px 25px #b0c4de33;
+        }
+        .cancel-btn {
+            background: #ccc;
+            color: #2c3e50;
+            padding: 15px 0;
+            border: none;
+            border-radius: 9px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            margin-bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        .cancel-btn:hover {
+            background: #b0c4de;
+            color: #1e3a8a;
+        }
+        .navitasys-logo {
+                height: 38px;      /* Adjust as needed */
+                width: auto;
+                vertical-align: middle;
+                margin-right: 10px;
+            }
+        @media (max-width: 700px) {
+            .company-header {
+                flex-direction: column;
+                padding: 15px 20px;
+                text-align: center;
+            }
+            .company-left {
+                text-align: center;
+                margin-bottom: 10px;
+            }
+            .company-left h1 {
+                font-size: 22px;
+            }
+            .company-left p {
+                font-size: 12px;
+            }
+            .company-right {
+                font-size: 22px;
+                text-align: center;
+            }
+            .container {
+                max-width: 100%;
+            }
+            .form-container, .header {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Company Header -->
+    <div class="company-header">
+        <div class="company-left">
+            <img src="{{ url_for('static', filename= 'image/final_logos.png') }}" class="navitasys-logo" alt="Navitasys Logo">
+        </div>
+    </div>
+    <div class="container">
+        <div class="header">
+            <img src="{{ url_for('static', filename='image/ask_hr_logo.png') }}" alt="Ask HR Logo">
+            <h2>Edit Your Query</h2>
+            <p>You can update your query details below (max 1 edits allowed).</p>
+        </div>
+        <div class="form-container">
+            <form method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="grievance_type">Type of Concern <span class="required">*</span></label>
+                    <select id="grievance_type" name="grievance_type" required>
+                        {% for key, value in grievance_types.items() %}
+                            <option value="{{ key }}" {% if grievance[7] == key %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="subject">Subject <span class="required">*</span></label>
+                    <input type="text" id="subject" name="subject" value="{{ grievance[8] }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Detailed Description <span class="required">*</span></label>
+                    <textarea id="description" name="description" required>{{ grievance[9] }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Supporting Document (Optional)</label>
+                    <div class="file-upload">
+                        <input type="file" id="attachment" name="attachment" accept=".png,.jpg,.jpeg,.gif,.pdf,.doc,.docx">
+                        <label for="attachment" class="file-upload-label">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Click to upload file or drag and drop</span>
+                        </label>
+                    </div>
+                    {% if grievance[11] %}
+                        <div style="margin-top:8px;">
+                            <a href="{{ url_for('static', filename='uploads/' ~ grievance[11]) }}" target="_blank" style="color:#4a6fa5;">
+                                View current attachment
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+                <a href="{{ url_for('my_queries') }}" class="cancel-btn">
+                    <i class="fas fa-times"></i> Cancel
+                </a>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

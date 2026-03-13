@@ -651,7 +651,7 @@
                     <tr>
                         <td>{{ grievance.id }}</td>
                         <td>{{ grievance.employee_name }}<br><small>{{ grievance.emp_code }}</small></td>
-                        <td>{{ grievance_types[grievance.grievance_type] }}</td>
+                        <td>{{ grievance_types.get(grievance.grievance_type, grievance.grievance_type) }}</td>
                         <td>{{ grievance.subject }}</td>
                         <td>
                             <span class="status-badge status-{{ grievance.status|lower|replace(' ', '-') }}">

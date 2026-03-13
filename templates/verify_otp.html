@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify OTP - AskHR</title>
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile_fixes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            line-height: 1.6;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 450px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .verify-box {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .logo {
+            margin-bottom: 30px;
+        }
+
+        .logo i {
+            font-size: 48px;
+            color: #2c5aa0;
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            color: #2c5aa0;
+            margin-top: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c5aa0;
+        }
+
+        .otp-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 24px;
+            letter-spacing: 8px;
+            text-align: center;
+            font-weight: bold;
+            transition: border-color 0.3s ease;
+        }
+
+        .otp-input:focus {
+            outline: none;
+            border-color: #2c5aa0;
+            box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
+        }
+
+        .info-text {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .phone-number {
+            font-weight: bold;
+            color: #2c5aa0;
+        }
+
+        .verify-btn {
+            background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .verify-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(44, 90, 160, 0.3);
+        }
+
+        .resend {
+            margin-top: 15px;
+            color: #2c5aa0;
+            text-decoration: none;
+            font-size: 14px;
+            display: inline-block;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #2c5aa0;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .timer {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+
+        .flash-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="verify-box">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <h1>Verify OTP</h1>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message flash-{{ category }}">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' }}"></i>
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <p class="info-text">We've sent a verification code to <span class="phone-number">{{ masked_phone }}</span></p>
+
+            <form method="POST" action="{{ url_for('verify_otp') }}">
+                <div class="form-group">
+                    <label for="otp">Enter Verification Code</label>
+                    <input type="text" id="otp" name="otp" class="otp-input" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" required>
+                </div>
+
+                <input type="hidden" name="emp_code" value="{{ emp_code }}">
+                <input type="hidden" name="employee_name" value="{{ employee_name }}">
+                <input type="hidden" name="employee_phone" value="{{ employee_phone }}">
+                <input type="hidden" name="user_type" value="{{ user_type }}">
+
+                <button type="submit" class="verify-btn">
+                    <i class="fas fa-check-circle"></i> Verify & Login
+                </button>
+            </form>
+
+            <div class="timer">Resend OTP in <span id="countdown">60</span> seconds</div>
+            <button id="resend-otp-btn" class="resend" style="display: none;">
+                <i class="fas fa-sync"></i> Resend OTP
+            </button>
+            <span id="resend-status" style="display:block;margin-top:8px;color:#2c5aa0;"></span>
+
+            <a href="{{ url_for('login') }}" class="back-link">
+                <i class="fas fa-arrow-left"></i> Back to Login
+            </a>
+
+        </div>
+    </div>
+
+    <script>
+        let countdown = 60;
+        const countdownDisplay = document.getElementById('countdown');
+        const resendBtn = document.getElementById('resend-otp-btn');
+        const timerDiv = document.querySelector('.timer');
+        const resendStatus = document.getElementById('resend-status');
+
+        function startTimer() {
+            countdown = 60;
+            countdownDisplay.textContent = countdown;
+            timerDiv.style.display = 'block';
+            resendBtn.style.display = 'none';
+            resendStatus.textContent = '';
+            const timer = setInterval(() => {
+                countdown--;
+                countdownDisplay.textContent = countdown;
+                if (countdown <= 0) {
+                    clearInterval(timer);
+                    timerDiv.style.display = 'none';
+                    resendBtn.style.display = 'inline-block';
+                }
+            }, 1000);
+        }
+
+        startTimer();
+
+        resendBtn.onclick = function() {
+            resendBtn.disabled = true;
+            resendStatus.textContent = 'Sending...';
+            fetch('{{ url_for("resend_otp") }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `user_type={{ user_type }}&emp_code={{ emp_code }}&employee_phone={{ employee_phone }}&employee_email={{ employee_email }}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                resendStatus.textContent = data.message;
+                resendBtn.disabled = false;
+                startTimer();
+            })
+            .catch(() => {
+                resendStatus.textContent = 'Failed to resend OTP. Please try again.';
+                resendBtn.disabled = false;
+            });
+        };
+    </script>
+</body>
+</html>

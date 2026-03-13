@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AskHR Everywhere</title>
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile_fixes.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            line-height: 1.6;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+        }
+
+        .company-header {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            background-color: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: white;
+            padding: 20px 40px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .company-left {
+            text-align: left;
+        }
+
+        .company-left h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            text-shadow: none;
+        }
+
+        .company-left p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.8;
+            color: white;
+        }
+        .container {
+            max-width: 650px;
+            margin: 40px auto;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1;
+            position: relative;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px 40px 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo img {
+            width: 180px;
+            max-width: 100%;
+            display: block;
+            margin: 0 auto 10px auto;
+        }
+
+        .logo i {
+            font-size: 48px;
+            color: #2c5aa0;
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            color: #2c5aa0;
+            margin-top: 10px;
+        }
+
+        .login-options {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 10px;
+            width: 100%;
+        }
+        
+        .login-option {
+            flex: 1;
+            padding: 10px 15px;
+            background: #f1f2f6;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .login-option.active {
+            background: #2c5aa0;
+            color: white;
+            border-color: #2c5aa0;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c5aa0;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #2c5aa0;
+            box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
+        }
+
+        .form-control.error {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .login-btn {
+            background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(44, 90, 160, 0.3);
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #2c5aa0;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+
+        .flash-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .login-form {
+            width: 100%; 
+            display: none;
+        }
+        
+        .login-form.active {
+            display: block;
+        }
+
+        .auth-toggle {
+            margin: 20px 0;
+        }
+
+        .auth-option {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .auth-option:first-child {
+            border-right: none;
+            border-radius: 8px 0 0 8px;
+        }
+
+        .auth-option:last-child {
+            border-left: none;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .auth-fields {
+            transition: all 0.3s ease;
+        }
+                    
+        .navitasys-logo {
+                height: 38px;      /* Adjust as needed */
+                width: auto;
+                vertical-align: middle;
+                margin-right: 10px;
+            }
+
+        @media (max-width: 700px) {
+            .company-header {
+                flex-direction: column;
+                padding: 15px 20px;
+                text-align: center;
+            }
+            .container {
+                max-width: 100%;
+                margin: 20px 0;
+            }
+            .login-box {
+                padding: 20px 10px 15px 10px;
+            }
+            .logo img {
+                width: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="company-header">
+        <div class="company-left">
+            <img src="{{ url_for('static', filename= 'image/final_logo.png') }}" class="navitasys-logo" alt="Navitasys Logo">
+        </div>
+    </div>
+    <div class="container">
+        <div class="login-box">
+            <div class="logo">
+                <img src="{{ url_for('static', filename= 'image/ask_hr_logo.png') }}" alt="AskHR Logo">
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message flash-{{ category }}">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' }}"></i>
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            
+            <div class="login-options">
+                <div class="login-option active" id="employee-tab">Employee Login</div>
+                <div class="login-option" id="hr-tab">HR Login</div>
+                <div class="login-option" id="admin-tab">Admin Login</div>
+            </div>
+
+            <!-- Employee Login Form with DOB/OTP toggle -->
+            <form method="POST" action="{{ url_for('verify_login') }}" class="login-form active" id="employee-form" autocomplete="off">
+                <input type="hidden" name="user_type" value="employee">
+                <input type="hidden" name="auth_type" id="auth_type" value="otp">
+                <input type="hidden" name="date_of_birth_formatted" id="date_of_birth_formatted" value="">
+                
+                <div class="form-group">
+                    <label for="emp_code">Employee Code</label>
+                    <input type="text" id="emp_code" name="emp_code" class="form-control" required autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="employee_name">Full Name</label>
+                    <input type="text" id="employee_name" name="employee_name" class="form-control" required autocomplete="off" readonly>
+                </div>
+
+                <div class="login-options auth-toggle">
+                    <div class="login-option auth-option active" data-auth="otp">Login with OTP</div>
+                    <div class="login-option auth-option" data-auth="dob">Login with DOB</div>
+                </div>
+                
+                <!-- OTP fields -->
+                <div class="auth-fields" id="otp-fields">
+                    <div class="form-group">
+                        <label for="employee_phone">Phone Number</label>
+                        <input type="tel" id="employee_phone" name="employee_phone" class="form-control" required autocomplete="off">
+                    </div>
+                </div>
+                
+                <!-- DOB fields -->
+                <div class="auth-fields" id="dob-fields" style="display:none;">
+                    <div class="form-group">
+                        <label for="date_of_birth">Date of Birth (DD/MM/YYYY)</label>
+                        <input type="text" id="date_of_birth" name="date_of_birth_display" class="form-control" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off">
+                        <div class="error-message" id="dob-error">Please enter a valid date in DD/MM/YYYY format</div>
+                    </div>
+                </div>
+
+                <button type="submit" class="login-btn" id="employee-submit-btn">
+                    <i class="fas fa-sign-in-alt"></i> <span id="employee-btn-text">Get OTP</span>
+                </button>
+            </form>
+
+            <!-- HR Login Form -->
+            <form method="POST" action="{{ url_for('verify_login') }}" class="login-form" id="hr-form" autocomplete="off">
+                <input type="hidden" name="user_type" value="hr">
+                <div class="form-group">
+                    <label for="hr_emp_code">HR Employee Code</label>
+                    <input type="text" id="hr_emp_code" name="emp_code" class="form-control" required autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="hr_email">Email Address</label>
+                    <input type="email" id="hr_email" name="employee_email" class="form-control" required autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="hr_phone">Phone Number</label>
+                    <input type="tel" id="hr_phone" name="employee_phone" class="form-control" required autocomplete="off">
+                </div>
+
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i> Get OTP
+                </button>
+            </form>
+
+            <!-- Admin Login Form -->
+            <form method="POST" action="{{ url_for('verify_login') }}" class="login-form" id="admin-form" autocomplete="off">
+                <input type="hidden" name="user_type" value="admin">
+                <div class="form-group">
+                    <label for="admin_emp_code">Admin ID</label>
+                    <input type="text" id="admin_emp_code" name="emp_code" class="form-control" required autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="admin_email">Email Address</label>
+                    <input type="email" id="admin_email" name="employee_email" class="form-control" required autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="admin_phone">Phone Number</label>
+                    <input type="tel" id="admin_phone" name="employee_phone" class="form-control" required autocomplete="off">
+                </div>
+
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i> Get OTP
+                </button>
+            </form>
+
+            <a href="{{ url_for('index') }}" class="back-link">
+                <i class="fas fa-arrow-left"></i> Back to Home
+            </a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Date formatting and validation for DD/MM/YYYY
+            const dobInput = document.getElementById('date_of_birth');
+            const dobFormattedInput = document.getElementById('date_of_birth_formatted');
+            const dobError = document.getElementById('dob-error');
+            
+            if (dobInput) {
+                // Format input as user types
+                dobInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                    
+                    // Limit to 8 digits (DDMMYYYY)
+                    if (value.length > 8) {
+                        value = value.substring(0, 8);
+                    }
+                    
+                    // Add slashes
+                    if (value.length >= 2) {
+                        value = value.substring(0, 2) + '/' + value.substring(2);
+                    }
+                    if (value.length >= 5) {
+                        value = value.substring(0, 5) + '/' + value.substring(5, 9);
+                    }
+                    
+                    e.target.value = value;
+                    
+                    // Clear previous error states
+                    e.target.classList.remove('error');
+                    dobError.style.display = 'none';
+                });
+                
+                // Validate on blur and convert format
+                dobInput.addEventListener('blur', function(e) {
+                    const value = e.target.value.trim();
+                    
+                    if (!value) {
+                        // Clear the formatted input if empty
+                        dobFormattedInput.value = '';
+                        return;
+                    }
+                    
+                    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                    const match = value.match(dateRegex);
+                    
+                    if (!match) {
+                        showDateError(e.target, 'Please enter a valid date in DD/MM/YYYY format');
+                        return;
+                    }
+                    
+                    const day = parseInt(match[1], 10);
+                    const month = parseInt(match[2], 10);
+                    const year = parseInt(match[3], 10);
+                    
+                    // Validate date ranges
+                    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > new Date().getFullYear()) {
+                        showDateError(e.target, 'Please enter a valid date');
+                        return;
+                    }
+                    
+                    // Create date object and validate it exists (handles cases like 31/02/2023)
+                    const date = new Date(year, month - 1, day);
+                    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+                        showDateError(e.target, 'Please enter a valid date');
+                        return;
+                    }
+                    
+                    // Check if date is not in the future
+                    const today = new Date();
+                    today.setHours(23, 59, 59, 999); // Set to end of today
+                    if (date > today) {
+                        showDateError(e.target, 'Date of birth cannot be in the future');
+                        return;
+                    }
+                    
+                    // Convert DD/MM/YYYY to YYYY-MM-DD for backend
+                    const formattedDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                    dobFormattedInput.value = formattedDate;
+                    
+                    // Clear error state
+                    e.target.classList.remove('error');
+                    dobError.style.display = 'none';
+                });
+            }
+            
+            function showDateError(input, message) {
+                input.classList.add('error');
+                dobError.textContent = message;
+                dobError.style.display = 'block';
+                dobFormattedInput.value = ''; // Clear the formatted value
+            }
+            
+            // Tab switching logic
+            const tabs = {
+                'employee-tab': 'employee-form',
+                'hr-tab': 'hr-form',
+                'admin-tab': 'admin-form'
+            };
+            
+            Object.keys(tabs).forEach(tabId => {
+                document.getElementById(tabId).addEventListener('click', function() {
+                    // Update tab classes
+                    document.querySelectorAll('.login-option').forEach(tab => {
+                        tab.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    // Update form visibility
+                    document.querySelectorAll('.login-form').forEach(form => {
+                        form.classList.remove('active');
+                    });
+                    document.getElementById(tabs[tabId]).classList.add('active');
+                });
+            });
+
+            // Auth toggle functionality for employee form
+            const authOptions = document.querySelectorAll('.auth-option');
+            const authTypeInput = document.getElementById('auth_type');
+            const otpFields = document.getElementById('otp-fields');
+            const dobFields = document.getElementById('dob-fields');
+            const phoneInput = document.getElementById('employee_phone');
+            const btnText = document.getElementById('employee-btn-text');
+
+            authOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Update active state
+                    authOptions.forEach(opt => opt.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Get auth type
+                    const authType = this.getAttribute('data-auth');
+                    authTypeInput.value = authType;
+                    
+                    if (authType === 'otp') {
+                        // Show phone field, hide DOB
+                        otpFields.style.display = 'block';
+                        dobFields.style.display = 'none';
+                        phoneInput.setAttribute('required', '');
+                        dobInput.removeAttribute('required');
+                        btnText.textContent = 'Get OTP';
+                    } else {
+                        // Show DOB field, hide phone
+                        otpFields.style.display = 'none';
+                        dobFields.style.display = 'block';
+                        phoneInput.removeAttribute('required');
+                        dobInput.setAttribute('required', '');
+                        btnText.textContent = 'Login with DOB';
+                    }
+                });
+            });
+            
+            // Form submission validation
+            document.getElementById('employee-form').addEventListener('submit', function(e) {
+                const authType = authTypeInput.value;
+                
+                if (authType === 'dob') {
+                    const dobDisplayValue = dobInput.value.trim();
+                    const dobFormattedValue = dobFormattedInput.value;
+                    
+                    if (!dobDisplayValue) {
+                        e.preventDefault();
+                        showDateError(dobInput, 'Please enter your date of birth');
+                        return false;
+                    }
+                    
+                    if (!dobFormattedValue) {
+                        e.preventDefault();
+                        showDateError(dobInput, 'Please enter a valid date in DD/MM/YYYY format');
+                        return false;
+                    }
+                }
+            });
+            function autoFillFields(formId, userType) {
+            const form = document.getElementById(formId);
+            const codeInput = form.querySelector('input[name="emp_code"]');
+            if (!codeInput) return;
+
+            codeInput.addEventListener('blur', function() {
+                const empCode = this.value.trim();
+                
+                const emailInput = form.querySelector('input[name="employee_email"]');
+                const phoneInput = form.querySelector('input[name="employee_phone"]');
+                const nameInput = form.querySelector('input[name="employee_name"]');
+
+                // Clear fields if empCode is empty
+                if (!empCode) {
+                    if (userType !== 'employee') {
+                        emailInput.value = '';
+                        phoneInput.value = '';
+                        emailInput.readOnly = false;
+                        phoneInput.readOnly = false;
+                    } else {
+                        nameInput.value = '';
+                        phoneInput.value = '';
+                    }
+                    return;
+                }
+                
+                // Call the updated API endpoint
+                fetch(`/api/get_user_details?emp_code=${encodeURIComponent(empCode)}&user_type=${userType}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (userType === 'employee') {
+                                nameInput.value = data.employee_name || '';
+                                phoneInput.value = data.employee_phone || '';
+                            } else { // For HR and Admin
+                                emailInput.value = data.employee_email || '';
+                                phoneInput.value = data.employee_phone || '';
+                                emailInput.readOnly = true;
+                                phoneInput.readOnly = true;
+                            }
+                        } else {
+                            // On failure, clear fields and make them editable again
+                            if (userType !== 'employee') {
+                                emailInput.value = '';
+                                phoneInput.value = '';
+                                emailInput.readOnly = false;
+                                phoneInput.readOnly = false;
+                            } else {
+                                nameInput.value = '';
+                                phoneInput.value = '';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching details:', error);
+                        if (userType !== 'employee' && emailInput) {
+                            emailInput.readOnly = false;
+                            phoneInput.readOnly = false;
+                        }
+                    });
+            });
+        }
+
+        // Apply the autofill logic to all three forms
+        autoFillFields('employee-form', 'employee'); 
+        autoFillFields('hr-form', 'hr');      
+        autoFillFields('admin-form', 'admin');   
+    });
+    </script>
+</body>
+</html>

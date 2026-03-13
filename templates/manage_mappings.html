@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage HR Mappings - Query System</title>
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile_fixes.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.8;
+        }
+
+        .back-nav {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #2c5aa0;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .mappings-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            color: #2c5aa0;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .mapping-form {
+            margin-bottom: 30px;
+        }
+        
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c5aa0;
+        }
+        
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .form-group select:focus {
+            border-color: #2c5aa0;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
+        }
+        
+        .submit-btn {
+            padding: 12px 25px;
+            background: #2c5aa0;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            background: #1e3a5f;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+
+        .mapping-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .mapping-table th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            color: #2c5aa0;
+            font-weight: 600;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .mapping-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .mapping-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .hr-name {
+            font-weight: 600;
+            color: #2c5aa0;
+        }
+        
+        .hr-code {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+
+        .flash-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .unassigned {
+            color: #e74c3c;
+            font-weight: 600;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .form-group {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-exchange-alt"></i> Manage HR-Query Mappings</h1>
+            <p>Assign HR personnel to query types</p>
+        </div>
+        
+        <div class="back-nav">
+            <a href="{{ url_for('master_dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' }}"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <div class="mappings-container">
+            <h2 class="section-title">Update HR Assignment</h2>
+            
+                <form class="mapping-form" action="{{ url_for('manage_hr_mappings') }}" method="POST">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="grievance_type">Query Type</label>
+                        <select id="grievance_type" name="grievance_type" required>
+                            <option value="">Select Query Type</option>
+                            {% for key, value in grievance_types.items() %}
+                                <option value="{{ key }}">{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+    <label for="hr_emp_code_input">Assign HR Staff (Enter Employee Code)</label>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <input type="text" id="hr_emp_code_input" placeholder="Enter HR Employee Code to add or update" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
+        <button type="button" id="fetchHrBtn" class="btn btn-secondary" style="white-space: nowrap;">
+            <i class="fas fa-search"></i> Fetch Details
+        </button>
+    </div>
+    <div id="hrDetails" style="margin-top: 12px; padding: 10px; background-color: #e9ecef; border-radius: 8px; display: none; border-left: 4px solid #1e3c72;">
+        </div>
+    <input type="hidden" id="hr_emp_code" name="hr_emp_code">
+    <input type="hidden" id="hr_employee_name" name="hr_employee_name">
+    <input type="hidden" id="hr_employee_email" name="hr_employee_email">
+    <input type="hidden" id="hr_employee_phone" name="hr_employee_phone">
+</div>
+                </div>
+                
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-save"></i> Update Assignment
+                </button>
+            </form>
+            
+            <h2 class="section-title">Current Assignments</h2>
+            
+            <div class="table-responsive">
+            <table class="mapping-table">
+                <thead>
+                    <tr>
+                        <th>Query Type</th>
+                        <th>Assigned HR</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, value in grievance_types.items() %}
+                        <tr>
+                            <td>{{ value }}</td>
+                            <td>
+                                {% if key in mappings %}
+                                    <span class="hr-name">{{ mappings[key]['name'] }}</span>
+                                    <div class="hr-code">{{ mappings[key]['emp_code'] }}</div>
+                                {% else %}
+                                    <span class="unassigned">Unassigned</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const hrCodeInput = document.getElementById('hr_emp_code_input');
+        const fetchHrBtn = document.getElementById('fetchHrBtn');
+        const hrDetailsDiv = document.getElementById('hrDetails');
+        const submitBtn = document.querySelector('.submit-btn');
+
+        // Hidden fields to populate
+        const hiddenHrCode = document.getElementById('hr_emp_code');
+        const hiddenHrName = document.getElementById('hr_employee_name');
+        const hiddenHrEmail = document.getElementById('hr_employee_email');
+        const hiddenHrPhone = document.getElementById('hr_employee_phone');
+
+        // Disable the "Update Assignment" button by default
+        submitBtn.disabled = true;
+        submitBtn.style.cursor = 'not-allowed';
+        submitBtn.style.opacity = '0.6';
+
+        // Reset and disable on new input
+        hrCodeInput.addEventListener('input', () => {
+            submitBtn.disabled = true;
+            submitBtn.style.cursor = 'not-allowed';
+            submitBtn.style.opacity = '0.6';
+            hrDetailsDiv.style.display = 'none';
+            hiddenHrCode.value = '';
+        });
+
+        fetchHrBtn.addEventListener('click', async () => {
+            const empCode = hrCodeInput.value.trim();
+            if (!empCode) {
+                alert('Please enter an Employee Code.');
+                return;
+            }
+
+            hrDetailsDiv.style.display = 'block';
+            hrDetailsDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching details...';
+
+            try {
+                // This calls the API endpoint already in your Python code
+                const response = await fetch(`/api/get_employee_sap?emp_code=${empCode}`);
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.statusText}`);
+                }
+                const data = await response.json();
+
+                if (data.success) {
+                    const employee = data.employee;
+                    hrDetailsDiv.innerHTML = `<strong>Name:</strong> ${employee.employee_name}<br><strong>Email:</strong> ${employee.employee_email || 'N/A'}`;
+                    
+                    // Populate hidden fields for submission
+                    hiddenHrCode.value = employee.emp_code;
+                    hiddenHrName.value = employee.employee_name;
+                    hiddenHrEmail.value = employee.employee_email || '';
+                    hiddenHrPhone.value = employee.employee_phone || '';
+
+                    // Enable the submit button
+                    submitBtn.disabled = false;
+                    submitBtn.style.cursor = 'pointer';
+                    submitBtn.style.opacity = '1';
+
+                } else {
+                    hrDetailsDiv.innerHTML = `<span style="color: #e74c3c;"><strong>Error:</strong> ${data.error}</span>`;
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                hrDetailsDiv.innerHTML = `<span style="color: #e74c3c;"><strong>Error:</strong> Could not fetch details. Please check the code or try again.</span>`;
+            }
+        });
+    });
+</script>
+</body>
+</html>

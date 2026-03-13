@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Reply To Query</title>
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile_fixes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <style>
+        body{
+            font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background:linear-gradient(135deg,#f5f7fa 0%, #c3cfe2 100%);
+            min-height:100vh;
+            margin:0;
+            color:#2c3e50;
+        }
+        .company-header{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            background:linear-gradient(135deg,#f5f7fa 0%, #c3cfe2 100%);
+            padding:20px 40px;
+        }
+        .navitasys-logo{height:38px;width:auto;vertical-align:middle;margin-right:10px;}
+        .container{
+            max-width:1050px;
+            margin:25px auto 50px auto;
+            padding:0 18px;
+        }
+        .header{
+            background:white;
+            padding:28px 30px 25px 30px;
+            border-radius:14px;
+            box-shadow:0 6px 22px rgba(0,0,0,0.10);
+            margin-bottom:22px;
+            position:relative;
+            text-align:center;
+        }
+        .header h1{
+            margin:0 0 6px 0;
+            font-size:2.0rem;
+            color:#2c5aa0;
+        }
+        .header small{
+            color:#555;
+            font-weight:500;
+        }
+        .stats-strip{
+            display:flex;
+            flex-wrap:wrap;
+            gap:16px;
+            margin-bottom:22px;
+        }
+        .mini-stat{
+            flex:1 1 180px;
+            background:white;
+            border-radius:12px;
+            padding:14px 16px;
+            box-shadow:0 4px 16px rgba(0,0,0,0.08);
+            position:relative;
+        }
+        .mini-stat h4{
+            margin:0 0 6px 0;
+            font-size:0.85rem;
+            text-transform:uppercase;
+            letter-spacing:0.5px;
+            color:#2c5aa0;
+        }
+        .mini-stat .value{
+            font-size:1.15rem;
+            font-weight:600;
+        }
+        .badge-status{
+            display:inline-block;
+            padding:6px 14px;
+            border-radius:20px;
+            font-size:0.75rem;
+            font-weight:600;
+            letter-spacing:0.5px;
+            background:#3498db;
+            color:#fff;
+        }
+        .badge-Submitted{background:#3498db;}
+        .badge-In\ Progress{background:#f39c12;}
+        .badge-Resolved{background:#27ae60;}
+        .badge-Reopened{background:#e74c3c;}
+        .panel{
+            background:white;
+            border-radius:14px;
+            box-shadow:0 6px 22px rgba(0,0,0,0.08);
+            margin-bottom:26px;
+            overflow:hidden;
+        }
+        .panel-header{
+            padding:16px 22px 10px 22px;
+            border-bottom:1px solid #eef1f5;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            flex-wrap:wrap;
+        }
+        .panel-header h2{
+            margin:0;
+            font-size:1.1rem;
+            color:#2c5aa0;
+            letter-spacing:0.5px;
+        }
+        .panel-body{
+            padding:20px 22px 28px 22px;
+        }
+        .description-box, .reply-box, .history-box{
+            background:#f7fafc;
+            border:1px solid #e1e8f0;
+            border-radius:10px;
+            padding:16px 18px;
+            margin-bottom:16px;
+            position:relative;
+        }
+        .description-box h3,
+        .history-box h3,
+        .reply-box h3{
+            margin:0 0 10px 0;
+            font-size:0.95rem;
+            color:#2c5aa0;
+            letter-spacing:0.5px;
+        }
+        .messages{
+            max-height:420px;
+            overflow-y:auto;
+            padding-right:4px;
+        }
+        .msg{
+            background:white;
+            border:1px solid #dbe4ec;
+            border-radius:10px;
+            padding:12px 14px 10px 14px;
+            margin-bottom:14px;
+            position:relative;
+            box-shadow:0 2px 8px rgba(0,0,0,0.05);
+        }
+        .msg.hr{border-left:5px solid #2c5aa0;}
+        .msg.employee{border-left:5px solid #27ae60;}
+        .msg .meta{
+            font-size:0.70rem;
+            text-transform:uppercase;
+            letter-spacing:0.7px;
+            font-weight:600;
+            color:#6c7a89;
+            margin-bottom:6px;
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            flex-wrap:wrap;
+        }
+        .msg .text{
+            font-size:0.90rem;
+            line-height:1.45rem;
+            white-space:pre-wrap;
+        }
+        .no-messages{
+            padding:14px 0 6px 0;
+            color:#7b8895;
+            font-style:italic;
+            font-size:0.9rem;
+        }
+        .reply-form textarea{
+            width:100%;
+            resize:vertical;
+            min-height:130px;
+            padding:14px 16px;
+            font-size:0.95rem;
+            border:2px solid #e1e8f0;
+            background:#fff;
+            border-radius:10px;
+            outline:none;
+            transition:border .25s, box-shadow .25s, background .25s;
+        }
+        .reply-form textarea:focus{
+            border-color:#2c5aa0;
+            box-shadow:0 0 0 3px rgba(44,90,160,.15);
+        }
+        .file-input{
+            margin-top:14px;
+            display:flex;
+            align-items:center;
+            gap:14px;
+            flex-wrap:wrap;
+        }
+        .file-input input[type=file]{
+            font-size:0.80rem;
+            background:#fff;
+            padding:8px;
+            border:1px dashed #c5d3e0;
+            border-radius:8px;
+        }
+        .actions{
+            display:flex;
+            justify-content:flex-end;
+            gap:14px;
+            margin-top:20px;
+            flex-wrap:wrap;
+        }
+        .btn{
+            appearance:none;
+            border:none;
+            border-radius:10px;
+            padding:12px 26px;
+            font-size:0.9rem;
+            font-weight:600;
+            letter-spacing:0.5px;
+            cursor:pointer;
+            display:inline-flex;
+            gap:8px;
+            align-items:center;
+            background:#2c5aa0;
+            color:#fff;
+            box-shadow:0 4px 16px rgba(44,90,160,.3);
+            transition:background .25s, transform .25s, box-shadow .25s;
+        }
+        .btn:hover{
+            background:#1f4479;
+            transform:translateY(-2px);
+            box-shadow:0 6px 20px rgba(44,90,160,.4);
+        }
+        .btn.secondary{background:#7f8c8d; box-shadow:0 4px 16px rgba(127,140,141,.30);}
+        .btn.secondary:hover{background:#616e6e;}
+        .btn.disabled,
+        .btn:disabled{
+            background:#b7c3cf;
+            cursor:not-allowed;
+            transform:none;
+            box-shadow:none;
+            color:#fff;
+        }
+        .limit-note{
+            font-size:0.75rem;
+            letter-spacing:0.5px;
+            color:#6c7a89;
+            text-transform:uppercase;
+            font-weight:600;
+            margin-top:4px;
+        }
+        .remaining{
+            font-weight:700;
+            color:#2c5aa0;
+        }
+        .divider{
+            height:1px;
+            background:#e2e8f0;
+            margin:24px 0 10px 0;
+        }
+        .attachment-pill{
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            background:#eef4fa;
+            padding:6px 12px;
+            border-radius:20px;
+            font-size:0.70rem;
+            font-weight:600;
+            color:#2c5aa0;
+            text-decoration:none;
+            margin-top:8px;
+            box-shadow:0 2px 6px rgba(0,0,0,0.05);
+        }
+        .attachment-pill:hover{
+            background:#dce9f5;
+        }
+        .flash-messages{
+            margin-top:8px;
+            margin-bottom:18px;
+        }
+        .flash-message{
+            padding:14px 18px;
+            border-radius:10px;
+            font-size:.85rem;
+            margin-bottom:10px;
+            font-weight:500;
+            display:flex;
+            gap:12px;
+            align-items:flex-start;
+        }
+        .flash-success{background:#e6f9ed;color:#176533;border:1px solid #b9ecca;}
+        .flash-error{background:#fde8e8;color:#ab1f1f;border:1px solid #f8cccc;}
+        .flash-warning{background:#fff7e6;color:#805b04;border:1px solid #ffe1a6;}
+        .top-links{
+            position:absolute;
+            top:14px;
+            right:18px;
+            display:flex;
+            gap:10px;
+        }
+        .top-links a{
+            font-size:.70rem;
+            font-weight:600;
+            text-decoration:none;
+            letter-spacing:.5px;
+            padding:6px 14px;
+            border-radius:30px;
+            background:#eef4fa;
+            color:#2c5aa0;
+            transition:.25s;
+        }
+        .top-links a:hover{
+            background:#2c5aa0;
+            color:#fff;
+        }
+        @media (max-width:860px){
+            .mini-stat{flex:1 1 calc(50% - 16px);}
+        }
+        @media (max-width:620px){
+            .mini-stat{flex:1 1 100%;}
+            .actions{justify-content:stretch;}
+            .btn{flex:1 1 auto; justify-content:center;}
+            .panel-header{flex-direction:column;align-items:flex-start;gap:8px;}
+        }
+    </style>
+</head>
+<body>
+    <div class="company-header">
+        <div>
+            <img src="{{ url_for('static', filename='image/final_logo.png') }}" class="navitasys-logo" alt="Logo">
+        </div>
+        <div style="text-align:right; font-size:.85rem; color:#111; font-weight:600;">
+            {{ session['user']['employee_name'] }}<br>
+            <span style="font-weight:500; color:#333;">{{ session['user']['emp_code'] }}</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-comments"></i> Reply To Query</h1>
+            <small>Provide additional details requested by HR (Max {{ max_replies }} replies)</small>
+            <div class="top-links">
+                <a href="{{ url_for('my_queries') }}"><i class="fas fa-arrow-left"></i> My Dashboard</a>
+                <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category,message in messages %}
+            <div class="flash-message flash-{{ category }}">
+                <i class="fas fa-{{ 'check-circle' if category=='success' else ('exclamation-triangle' if category=='warning' else 'times-circle') }}"></i>
+                <div>{{ message }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Top stats -->
+        <div class="stats-strip">
+            <div class="mini-stat">
+                <h4>Reference ID</h4>
+                <div class="value">{{ grievance_id }}</div>
+            </div>
+            <div class="mini-stat">
+                <h4>Subject</h4>
+                <div class="value" style="font-size:.95rem; line-height:1.3rem;">{{ subject }}</div>
+            </div>
+            <div class="mini-stat">
+                <h4>Status</h4>
+                <div class="value">
+                    <span class="badge-status badge-{{ status|replace(' ', '\\ ') }}">{{ status }}</span>
+                </div>
+            </div>
+            <div class="mini-stat">
+                <h4>Replies Used</h4>
+                <div class="value"><span class="remaining">{{ reply_count }}</span> / {{ max_replies }}</div>
+                <div class="limit-note">You have {{ max_replies - reply_count }} remaining</div>
+            </div>
+        </div>
+
+        <!-- Original Description -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-file-alt"></i> Original Query</h2>
+            </div>
+            <div class="panel-body">
+                <div class="description-box">
+                    <h3>Description</h3>
+                    <div style="white-space:pre-wrap; font-size:.92rem;">{{ original_description|default('Not available')|nl2br }}</div>
+                    {% if original_attachment %}
+                        <a class="attachment-pill" href="{{ url_for('download_file', user_type='employee', emp_code=session['user']['emp_code'], filename=original_attachment) }}" target="_blank">
+                            <i class="fas fa-paperclip"></i> Attachment
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Message History -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-history"></i> Conversation History</h2>
+                <div style="font-size:.7rem; font-weight:600; letter-spacing:.5px; color:#667;">
+                    Newest at bottom
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="history-box">
+                    <h3>Messages</h3>
+                    <div class="messages" id="messagesBox">
+                        {% if responses and responses|length > 0 %}
+                            {% for r in responses %}
+                            <div class="msg {{ 'hr' if (r.role == 'hr' or r.role == 'admin') else 'employee' }}">
+                                <div class="meta">
+                                    <span>{{ r.responder_name or ('HR' if (r.role == 'hr' or r.role=='admin') else 'Employee') }}</span>
+                                    <span>{{ (r.response_date or r.created_at).strftime('%d-%m-%Y %H:%M') }}</span>
+                                </div>
+                                <div class="text">{{ r.response_text|nl2br }}</div>
+                                {% if r.attachment_path %}
+                                    <div style="margin-top:8px;">
+                                        <a class="attachment-pill"
+                                           href="{{ url_for('download_file', user_type=('hr' if (r.role=='hr' or r.role=='admin') else 'employee'), emp_code=(r.hr_emp_code or session['user']['emp_code']), filename=r.attachment_path) }}"
+                                           target="_blank"><i class="fas fa-paperclip"></i> Attachment</a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="no-messages">No responses yet.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reply Form -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-reply"></i> Add Your Reply</h2>
+                <div style="font-size:.65rem; font-weight:600; letter-spacing:.5px; color:#667; text-transform:uppercase;">
+                    Provide clear & complete information
+                </div>
+            </div>
+            <div class="panel-body">
+                {% if status == 'Resolved' %}
+                    <div class="reply-box" style="background:#fdecea; border-color:#f5c2c7;">
+                        <h3>Replies Disabled</h3>
+                        <p style="margin:0; font-size:.9rem;">This query is already resolved. You cannot add further replies.</p>
+                    </div>
+                {% elif reply_count >= max_replies %}
+                    <div class="reply-box" style="background:#fff7e6; border-color:#ffe2a6;">
+                        <h3>Reply Limit Reached</h3>
+                        <p style="margin:0; font-size:.9rem;">You have used all {{ max_replies }} allowed replies for this query.</p>
+                    </div>
+                {% else %}
+                    <div class="reply-box">
+                        <h3>Reply Form</h3>
+                        <form method="POST" enctype="multipart/form-data" class="reply-form" id="replyForm">
+                            <textarea name="reply_text" id="reply_text" minlength="10" maxlength="4000" placeholder="Type detailed reply (min 10 characters)..." required></textarea>
+                            <div class="file-input">
+                                <div style="font-size:.75rem; font-weight:600; letter-spacing:.5px; color:#2c5aa0;">Attachment (optional):</div>
+                                <input type="file" name="attachment" accept=".png,.jpg,.jpeg,.gif,.pdf,.doc,.docx">
+                            </div>
+                            <div class="limit-note">
+                                Remaining replies: <span class="remaining">{{ max_replies - reply_count }}</span>
+                            </div>
+                            <div class="actions">
+                                <a href="{{ url_for('my_queries') }}" class="btn secondary">
+                                    <i class="fas fa-arrow-left"></i> Back
+                                </a>
+                                <button type="submit" class="btn" id="submitBtn">
+                                    <i class="fas fa-paper-plane"></i> Submit Reply
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="text-align:center; font-size:.65rem; color:#6c7a89; letter-spacing:.7px; margin-top:26px;">
+            ASK HR Portal &middot; Secure & Confidential
+        </div>
+    </div>
+
+    <script>
+        // Auto-scroll to bottom of conversation
+        (function(){
+            const box = document.getElementById('messagesBox');
+            if(box){ box.scrollTop = box.scrollHeight; }
+
+            const form = document.getElementById('replyForm');
+            if(form){
+                form.addEventListener('submit', function(e){
+                    const ta = document.getElementById('reply_text');
+                    if(ta.value.trim().length < 10){
+                        e.preventDefault();
+                        alert('Reply must be at least 10 characters.');
+                        return;
+                    }
+                    document.getElementById('submitBtn').disabled = true;
+                    document.getElementById('submitBtn').classList.add('disabled');
+                    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+                });
+            }
+        })();
+    </script>
+    <script src="https://kit.fontawesome.com/a2d9d6cfd4.js" crossorigin="anonymous"></script>
+</body>
+</html>

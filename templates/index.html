@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AskHR</title>
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile_fixes.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at 20% 30%, #e3eafc 0%, #cfd9e6 60%, #b0bfcf 100%);
+            min-height: 100vh;
+            line-height: 1.6;
+            color: #2c3e50;
+            display: float ;
+            align-items: stretch;
+            justify-content: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Decorative shapes */
+        body::before, body::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            z-index: 0;
+            opacity: 0.10;
+            pointer-events: none;
+        }
+        body::before {
+            width: 380px;
+            height: 380px;
+            background: linear-gradient(135deg, #b0c4de 0%, #cfd9e6 100%);
+            top: -110px;
+            left: -110px;
+        }
+        body::after {
+            width: 260px;
+            height: 260px;
+            background: linear-gradient(135deg, #cfd9e6 0%, #b0bfcf 100%);
+            bottom: -80px;
+            right: -80px;
+        }
+
+        /* Company Header Styles */
+        .company-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: linear-gradient(120deg, #f7fafc 60%, #e3eafc 100%);
+            color: #1e3a8a;
+            padding: 20px 40px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .company-left {
+            text-align: left;
+        }
+
+        .company-left h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            text-shadow: none;
+        }
+
+        .company-left p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.8;
+            color: white;
+        }
+
+        .company-right {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: right;
+            color: white;
+            text-shadow: none;
+        }
+
+        .container {
+            max-width: 650px;
+            margin: 0 auto 40px auto;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1;
+            position: relative;
+        }
+
+        .header {
+            background: linear-gradient(120deg, #f7fafc 60%, #e3eafc 100%);
+            padding: 08px 30px 24px 30px;
+            border-radius: 18px 18px 0 0;
+            box-shadow: 0 8px 32px rgba(44, 90, 160, 0.08);
+            text-align: center;
+            margin-bottom: 0;
+            width: 200%;
+            position: relative;
+            overflow: hidden;
+            font-size: 2.8rem;
+        }
+
+        .header h1 i {
+            margin-right: 15px;
+            font-size: 2.8rem;
+            filter: drop-shadow(0 2px 8px #b0c4de33);
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            top: -40px;
+            right: -60px;
+            width: 140px;
+            height: 140px;
+            background: radial-gradient(circle, #b0c4de 0%, transparent 70%);
+            opacity: 0.10;
+            z-index: 0;
+        }
+
+        .avatar-circle {
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(135deg, #b0c4de 0%, #cfd9e6 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 18px auto;
+            box-shadow: 0 4px 18px rgba(176,196,222,0.13);
+            border: 3px solid #fff;
+            position: relative;
+            z-index: 1;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0);}
+            50% { transform: translateY(-8px);}
+        }
+
+        .avatar-circle i {
+            color: #fff;
+            font-size: 2.7rem;
+            filter: drop-shadow(0 2px 8px #b0c4de55);
+        }
+
+        .header h1 {
+            color: #4a6fa5;
+            font-size: 3.1rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            letter-spacing: 1.2px;
+            text-shadow: 0 2px 10px rgba(176,196,222,0.08);
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 i {
+            color: #b0c4de;
+            font-size: 3.1rem;
+            margin-right: 10px;
+            filter: drop-shadow(0 2px 8px #b0c4de33);
+        }
+
+        .header p {
+            color: #6c7a89;
+            font-size: 1.08rem;
+            font-weight: 500;
+            margin-bottom: 0;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 1px 8px #b0c4de22;
+        }
+
+        .header button {
+            margin-top: 22px;
+            background: linear-gradient(90deg, #b0c4de 0%, #4a6fa5 100%);
+            color: #fff;
+            border: none;
+            border-radius: 22px;
+            padding: 12px 32px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 2px 12px #b0c4de33;
+            transition: background 0.2s, transform 0.2s;
+            z-index: 1;
+            position: relative;
+        }
+        .header button:hover {
+            background: linear-gradient(90deg, #4a6fa5 0%, #b0c4de 100%);
+            transform: translateY(-2px) scale(1.03);
+        }
+        .header button a {
+            color: #fff !important;
+            text-decoration: none;
+        }
+
+        .form-container {
+            background: #fff;
+            padding: 34px 30px 28px 30px;
+            border-radius: 0 0 28px 28px;
+            box-shadow: 0 8px 32px rgba(44, 90, 160, 0.08);
+            width: 200%;
+            position: relative;
+            z-index: 1;
+        }
+
+        .form-container h2 {
+            color: #4a6fa5;
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-align: center;
+            text-shadow: 0 2px 8px #b0c4de11;
+        }
+
+        .form-group {
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 7px;
+            font-weight: 600;
+            color: #4a6fa5;
+            letter-spacing: 0.2px;
+        }
+
+        .required {
+            color: #e74c3c;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        input[type="date"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px 13px;
+            border: 2px solid #e3eafc;
+            border-radius: 9px;
+            font-size: 15px;
+            background: #f7fafc;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            margin-top: 2px;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="tel"]:focus,
+        input[type="date"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #4a6fa5;
+            box-shadow: 0 0 0 3px #b0c4de22;
+            background: #fff;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 110px;
+        }
+
+        .file-upload {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .file-upload input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            padding: 12px 13px;
+            border: 2px dashed #b0c4de;
+            border-radius: 9px;
+            background: #f7fafc;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            font-weight: 500;
+            color: #4a6fa5;
+            font-size: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-upload-label:hover {
+            background: #e3eafc;
+            border-color: #4a6fa5;
+            color: #4a6fa5;
+            transform: scale(1.01);
+        }
+
+        .file-upload-label::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(176, 196, 222, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .file-upload-label:hover::before {
+            left: 100%;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #4a6fa5 0%, #b0c4de 100%);
+            color: white;
+            padding: 15px 0;
+            border: none;
+            border-radius: 9px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            margin-top: 20px;
+            box-shadow: 0 4px 18px #b0c4de22;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .submit-btn:hover {
+            background: linear-gradient(135deg, #b0c4de 0%, #4a6fa5 100%);
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 8px 25px #b0c4de33;
+        }
+
+        .flash-messages {
+            margin-bottom: 18px;
+            z-index: 2;
+            position: relative;
+        }
+
+        .flash-message {
+            padding: 13px;
+            border-radius: 9px;
+            margin-bottom: 8px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px #b0c4de11;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .flash-success {
+            background: #eafaf1;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .flash-error {
+            background: #f8eaea;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .flash-warning {
+            background: #fdf7e3;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .help-text {
+            font-size: 13px;
+            color: #7b8a99;
+            margin-top: 4px;
+            margin-bottom: 2px;
+        }
+
+        /* Custom scrollbar for form */
+        ::-webkit-scrollbar {
+            width: 8px;
+            background: #e3eafc;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #b0c4de;
+            border-radius: 8px;
+        }
+
+        .read-only-field {
+            background-color: #f5f5f5;
+            border-color: #ddd;
+            cursor: not-allowed;
+            color: #555;
+        }
+
+        .read-only-field:focus {
+            border-color: #ddd;
+            box-shadow: none;
+            background-color: #f5f5f5;
+        }
+
+        /* Decorative accent dots */
+        .accent-dot {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.13;
+            z-index: 2;
+            pointer-events: none;
+        }
+        .dot1 { width: 18px; height: 18px; background: #b0c4de; top: 18px; left: 18px; }
+        .dot2 { width: 12px; height: 12px; background: #4a6fa5; top: 60px; right: 30px; }
+        .dot3 { width: 10px; height: 10px; background: #cfd9e6; bottom: 30px; left: 40px; }
+        .dot4 { width: 16px; height: 16px; background: #b0c4de; bottom: 60px; right: 24px; }
+
+        /* Responsive */
+        @media (max-width: 700px) {
+            .company-header {
+                flex-direction: column;
+                padding: 15px 20px;
+                text-align: center;
+            }
+
+            .company-left {
+                text-align: center;
+                margin-bottom: 10px;
+            }
+
+            .company-left h1 {
+                font-size: 22px;
+            }
+
+            .company-left p {
+                font-size: 12px;
+            }
+
+            .company-right {
+                font-size: 22px;
+                text-align: center;
+            }
+
+            .container {
+                max-width: 200%;
+            }
+            .form-container, .header {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            .avatar-circle {
+                width: 65px;
+                height: 65px;
+            }
+            .avatar-circle i {
+                font-size: 1.7rem;
+            }
+            .submit-btn {
+                font-size: 15px;
+                padding: 12px 0;
+            }
+            .form-group label {
+                font-size: 13px;
+            }
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            input[type="date"],
+            textarea,
+            select {
+                font-size: 13px;
+            }
+            .file-upload-label {
+                font-size: 13px;
+            }
+        }
+        
+            .hr-logo {
+                width: 250px;      /* Adjust size as needed */
+                height: auto;
+                margin-bottom: 18px;
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            .navitasys-logo {
+                height: 30px;      /* Adjust as needed */
+                width: auto;
+                vertical-align: middle;
+                margin-right: 10px;
+            }
+        /* Read-only field styling */
+        .read-only-field {
+            background-color: #f7f7f9;
+            color: #6c757d;
+            border-color: #d3d3d3;
+        }
+    </style>
+</head>
+<body>
+    <!-- Company Header -->
+    <div class="company-header">
+        <div class="company-left">
+        <img src="{{ url_for('static', filename= 'image/final_logo.png') }}" class="navitasys-logo" alt="Navitasys Logo">
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <img src="{{ url_for('static', filename= 'image/ask_hr_logo.png') }}" class="hr-logo" alt="AskHR Logo">
+            <button><a href="{{ url_for('login') }}" style="color: #2c5aa0; text-decoration: none;">View Query Dashboard</a></button>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' }}"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="form-container">
+            <h2 style="color: #2c5aa0; font-size: 1.5rem; font-weight: bold;">Submit New Query</h2>
+            <form method="POST" action="/submit" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="emp_code">Employee Code <span class="required">*</span></label>
+                    <input type="text" id="emp_code" name="emp_code" required>
+                </div>
+                <div class="api-status" id="apiStatus" style="margin-top: 5px; font-size: 0.9rem; display: none;">
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i> Fetching employee details...
+                    </div>
+                    <div class="success" style="color: #28a745; display: none;">
+                        <i class="fas fa-check-circle"></i> Employee details loaded successfully
+                    </div>
+                    <div class="error" style="color: #dc3545; display: none;">
+                        <i class="fas fa-exclamation-circle"></i> <span id="errorMessage">Could not find employee</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="employee_name">Full Name </label>
+                    <input type="text" id="employee_name" name="employee_name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="employee_email">Email Address</label>
+                    <input type="email" id="employee_email" name="employee_email">
+                </div>
+
+                <div class="form-group">
+                    <label for="employee_phone">Phone Number</label>
+                    <input type="tel" id="employee_phone" name="employee_phone" required>
+                </div>
+                
+                <input type="hidden" id="date_of_birth" name="date_of_birth">
+                
+                <div class="form-group">
+                    <label for="business_unit">Business Unit</label>
+                    <input type="text" id="business_unit" name="business_unit" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="department">Department</label>
+                    <input type="text" id="department" name="department" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="grievance_type">Type of Concern <span class="required">*</span></label>
+                    <div class="help-text">Select the appropriate category for your query</div>
+                    <select id="grievance_type" name="grievance_type" required>
+                        <option value="">Select a category</option>
+                        {% for key, value in grievance_types.items() %}
+                            <option value="{{ key }}">{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="subject">Subject <span class="required">*</span></label>
+                    <input type="text" id="subject" name="subject" placeholder="Short subject of your query" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Detailed Description <span class="required">*</span></label>
+                    <textarea id="description" name="description" rows="3" minlength="20" placeholder="Please provide detailed information about your query..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Supporting Document (Optional)</label>
+                    <div class="help-text">Upload screenshot, document, or any supporting file (Max 16MB)</div>
+                    <div class="file-upload">
+                        <input type="file" id="attachment" name="attachment" accept=".png,.jpg,.jpeg,.gif,.pdf,.doc,.docx">
+                        <label for="attachment" class="file-upload-label">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Click to upload file or drag and drop</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-paper-plane"></i> Submit Query
+                </button>
+            </form>
+        </div>
+
+    </div>
+
+    <div class="accent-dot dot1"></div>
+    <div class="accent-dot dot2"></div>
+    <div class="accent-dot dot3"></div>
+    <div class="accent-dot dot4"></div>
+    <script>
+        // Date formatting and validation for DD/MM/YYYY
+        document.addEventListener('DOMContentLoaded', function() {
+            const dobInput = document.getElementById('date_of_birth');
+            
+            if (dobInput) {
+                // Format input as user types
+                dobInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                    
+                    if (value.length >= 2) {
+                        value = value.substring(0, 2) + '/' + value.substring(2);
+                    }
+                    if (value.length >= 5) {
+                        value = value.substring(0, 5) + '/' + value.substring(5, 9);
+                    }
+                    
+                    e.target.value = value;
+                });
+                
+                // Validate on blur
+                dobInput.addEventListener('blur', function(e) {
+                    const value = e.target.value;
+                    const dateRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+                    
+                    if (value && !dateRegex.test(value)) {
+                        alert('Please enter a valid date in DD/MM/YYYY format');
+                        e.target.focus();
+                    } else if (value) {
+                        // Additional validation for valid dates
+                        const parts = value.split('/');
+                        const day = parseInt(parts[0], 10);
+                        const month = parseInt(parts[1], 10);
+                        const year = parseInt(parts[2], 10);
+                        
+                        const date = new Date(year, month - 1, day);
+                        if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+                            alert('Please enter a valid date');
+                            e.target.focus();
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+    <script>
+        const fileInput = document.getElementById('attachment');
+        const fileLabel = document.querySelector('.file-upload-label');
+        const fileSpan = document.querySelector('.file-upload-label span');
+
+        // File input change event
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                fileSpan.textContent = `Selected: ${e.target.files[0].name}`;
+            } else {
+                fileSpan.textContent = 'Click to upload file or drag and drop';
+            }
+        });
+
+        // Drag and drop functionality
+        fileLabel.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fileLabel.style.backgroundColor = '#e3eafc';
+            fileLabel.style.borderColor = '#4a6fa5';
+            fileLabel.style.transform = 'scale(1.02)';
+        });
+
+        fileLabel.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fileLabel.style.backgroundColor = '#f7fafc';
+            fileLabel.style.borderColor = '#b0c4de';
+            fileLabel.style.transform = 'scale(1)';
+        });
+
+        fileLabel.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Reset styles
+            fileLabel.style.backgroundColor = '#f7fafc';
+            fileLabel.style.borderColor = '#b0c4de';
+            fileLabel.style.transform = 'scale(1)';
+
+            // Get dropped files
+            const files = e.dataTransfer.files;
+
+            if (files.length > 0) {
+                // Check file type
+                const file = files[0];
+                const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+
+                if (allowedTypes.includes(file.type) || file.name.match(/\.(png|jpg|jpeg|gif|pdf|doc|docx)$/i)) {
+                    // Check file size (16MB limit)
+                    if (file.size <= 16 * 1024 * 1024) {
+                        fileInput.files = files;
+                        fileSpan.textContent = `Selected: ${file.name}`;
+                    } else {
+                        alert('File size must be less than 16MB');
+                    }
+                } else {
+                    alert('Please select a valid file type (PNG, JPG, JPEG, GIF, PDF, DOC, DOCX)');
+                }
+            }
+        });
+
+        // Prevent default drag behaviors on the document
+        document.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+
+        document.addEventListener('drop', function(e) {
+            e.preventDefault();
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all form elements
+            const empCodeInput = document.getElementById('emp_code');
+            const employeeNameInput = document.getElementById('employee_name');
+            const employeeEmailInput = document.getElementById('employee_email');
+            const employeePhoneInput = document.getElementById('employee_phone');
+            const dobInput = document.getElementById('date_of_birth');
+            const businessUnitInput = document.getElementById('business_unit');
+            const departmentInput = document.getElementById('department');
+            const apiStatus = document.getElementById('apiStatus');
+            const loadingDiv = apiStatus.querySelector('.loading');
+            const successDiv = apiStatus.querySelector('.success');
+            const errorDiv = apiStatus.querySelector('.error');
+            const errorMessage = document.getElementById('errorMessage');
+
+            // Make all fields read-only except employee code
+            employeeNameInput.readOnly = true;
+            employeeEmailInput.readOnly = true;
+            employeePhoneInput.readOnly = true;
+            dobInput.readOnly = true;
+            businessUnitInput.readOnly = true;
+            departmentInput.readOnly = true;
+
+            // Add visual styling to read-only fields
+            const readOnlyFields = [employeeNameInput, employeeEmailInput, employeePhoneInput,
+                                   dobInput, businessUnitInput, departmentInput];
+            readOnlyFields.forEach(field => {
+                field.classList.add('read-only-field');
+            });
+
+            // Set loading state with proper UI feedback
+            function setLoading(isLoading) {
+                const formFields = [employeeNameInput, employeeEmailInput, employeePhoneInput,
+                                   dobInput, businessUnitInput, departmentInput];
+
+                if (isLoading) {
+                    formFields.forEach(field => {
+                        field.placeholder = "Loading...";
+                        field.value = ""; // Clear the fields while loading
+                    });
+                    apiStatus.style.display = 'block';
+                    loadingDiv.style.display = 'block';
+                    successDiv.style.display = 'none';
+                    errorDiv.style.display = 'none';
+                } else {
+                    formFields.forEach(field => {
+                        field.placeholder = "";
+                    });
+                }
+            }
+
+            // Show status messages with proper UI feedback
+            function showStatus(type, message = '') {
+                apiStatus.style.display = 'block';
+
+                // Hide all status types
+                loadingDiv.style.display = 'none';
+                successDiv.style.display = 'none';
+                errorDiv.style.display = 'none';
+
+                // Show requested type
+                if (type === 'loading') {
+                    loadingDiv.style.display = 'block';
+                } else if (type === 'success') {
+                    successDiv.style.display = 'block';
+                    // Auto-hide after 3 seconds
+                    setTimeout(() => {
+                        apiStatus.style.display = 'none';
+                    }, 3000);
+                } else if (type === 'error') {
+                    errorDiv.style.display = 'block';
+                    if (message) {
+                        errorMessage.textContent = message;
+                    }
+                }
+            }
+
+            // Add debounce function to prevent too many API calls
+            function debounce(func, delay) {
+                let timeoutId;
+                return function(...args) {
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => func.apply(this, args), delay);
+                };
+            }
+
+            // Function to fetch employee details
+            const fetchEmployeeDetails = debounce(function(empCode) {
+                if (!empCode || empCode.length < 5) return;
+
+                console.log(`📡 Fetching employee details for code: ${empCode}`);
+
+                // Create abort controller properly
+                const controller = new AbortController();
+                if (window.currentFetch) {
+                    window.currentFetch.abort();
+                }
+                window.currentFetch = controller;
+
+                setLoading(true);
+                showStatus('loading');
+
+                // Set timeout to abort request after 8 seconds
+                const timeoutId = setTimeout(() => {
+                    controller.abort();
+                    setLoading(false);
+                    showStatus('error', 'Request timed out. Please try again.');
+                    console.log('❌ API request timed out after 8 seconds');
+                }, 8000);
+
+                console.log('🔄 Starting API request...');
+
+                fetch(`/api/get_employee_sap?emp_code=${empCode}`, {
+                    signal: controller.signal,
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                })
+                .then(response => {
+                    console.log(`📥 Response received: ${response.status} ${response.statusText}`);
+                    return response.json();
+                })
+                .then(data => {
+                    clearTimeout(timeoutId);
+                    setLoading(false);
+
+                    console.log(`✅ API response data:`, data);
+
+                    if (data.success && data.employee) {
+                        // Fill form fields with API data
+                        employeeNameInput.value = data.employee.employee_name || '';
+                        employeeEmailInput.value = data.employee.employee_email || '';
+                        employeePhoneInput.value = data.employee.employee_phone || '';
+
+                        if (data.employee.date_of_birth) {
+                            dobInput.value = data.employee.date_of_birth;
+                        }
+
+                        businessUnitInput.value = data.employee.business_unit || '';
+                        departmentInput.value = data.employee.department || '';
+
+                        console.log('✅ Form fields populated successfully');
+                        showStatus('success');
+                    } else {
+                        console.log("❌ Employee not found:", data.error);
+                        showStatus('error', data.error || 'Could not find employee');
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeoutId);
+                    console.error("❌ Error fetching employee details:", error);
+
+                    if (error.name === 'AbortError') {
+                        console.log('🛑 Fetch aborted');
+                    } else {
+                        setLoading(false);
+                        showStatus('error', 'An error occurred while fetching details');
+                    }
+                });
+            }, 300); // Reduced from 500ms to 300ms for faster response
+
+            // Listen for changes to employee code
+            empCodeInput.addEventListener('input', function() {
+                const empCode = this.value.trim();
+                fetchEmployeeDetails(empCode);
+            });
+
+            // Listen for name changes to generate email
+            employeeNameInput.addEventListener('blur', function() {
+                if (!employeeEmailInput.value) {
+                    const name = this.value.trim();
+                    if (name) {
+                        const nameParts = name.split(' ');
+                        if (nameParts.length >= 2) {
+                            const firstName = nameParts[0].toLowerCase();
+                            const lastName = nameParts[nameParts.length - 1].toLowerCase();
+                            employeeEmailInput.value = `${firstName}.${lastName}@{{ COMPANY_EMAIL_DOMAIN }}`;
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+    <script>
+        // Add this to ensure form data is cleared on page refresh/back navigation
+        document.addEventListener('DOMContentLoaded', function() {
+            // Clear form data when page loads
+            const formFields = [
+                document.getElementById('employee_name'),
+                document.getElementById('employee_email'),
+                document.getElementById('employee_phone'),
+                document.getElementById('date_of_birth'),
+                document.getElementById('business_unit'),
+                document.getElementById('department')
+            ];
+
+            // Clear all form fields except employee code
+            formFields.forEach(field => {
+                if (field) field.value = '';
+            });
+
+            // Force emp_code field to clear its value and get focus
+            const empCodeInput = document.getElementById('emp_code');
+            if (empCodeInput) {
+                empCodeInput.value = '';
+                setTimeout(() => empCodeInput.focus(), 100);
+            }
+
+            // Add page visibility change detection (back button/tab switch)
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    // User came back to the page - clear for security
+                    formFields.forEach(field => {
+                        if (field) field.value = '';
+                    });
+                    if (empCodeInput) empCodeInput.value = '';
+                }
+            });
+        });
+    </script>
+    <script>
+        // Automatically clear sensitive data after 5 minutes of inactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            let inactivityTimer;
+            const TIMEOUT_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+            function resetInactivityTimer() {
+                // Clear existing timer
+                if (inactivityTimer) {
+                    clearTimeout(inactivityTimer);
+                }
+
+                // Set new timer
+                inactivityTimer = setTimeout(clearSensitiveData, TIMEOUT_DURATION);
+            }
+
+            function clearSensitiveData() {
+                console.log('⏰ Inactivity timeout reached - clearing sensitive data');
+
+                // Clear all form fields
+                const formFields = [
+                    document.getElementById('employee_name'),
+                    document.getElementById('employee_email'),
+                    document.getElementById('employee_phone'),
+                    document.getElementById('date_of_birth'),
+                    document.getElementById('business_unit'),
+                    document.getElementById('department'),
+                    document.getElementById('emp_code')
+                ];
+
+                formFields.forEach(field => {
+                    if (field) field.value = '';
+                });
+
+                // Show security message
+                const securityMessage = document.createElement('div');
+                securityMessage.className = 'alert alert-info';
+                securityMessage.innerHTML = 'Form data has been cleared due to inactivity (5 minutes)';
+
+                const form = document.querySelector('form');
+                if (form) {
+                    form.prepend(securityMessage);
+
+                    // Auto-remove message after 5 seconds
+                    setTimeout(() => {
+                        securityMessage.remove();
+                    }, 5000);
+                }
+            }
+
+            // Reset timer on various user interactions
+            ['click', 'keypress', 'touchstart', 'mousemove'].forEach(event => {
+                document.addEventListener(event, resetInactivityTimer);
+            });
+
+            // Start initial timer
+            resetInactivityTimer();
+        });
+    </script>
+</body>
+</html>

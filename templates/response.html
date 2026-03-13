@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Respond to Query</title>
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile_fixes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .form-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c5aa0;
+        }
+
+        .required {
+            color: #e74c3c;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #2c5aa0;
+            box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .file-upload {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .file-upload input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px dashed #2c5aa0;
+            border-radius: 8px;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-upload-label:hover {
+            background: #f0f4ff;
+            border-color: #1e3a5f;
+            transform: scale(1.01);
+        }
+
+        .file-upload-label i {
+            margin-right: 10px;
+            color: #2c5aa0;
+            font-size: 1.2rem;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(44, 90, 160, 0.3);
+        }
+
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+
+        .flash-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .grievance-details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .help-text {
+            font-size: 13px;
+            color: #7b8a99;
+            margin-top: 4px;
+            margin-bottom: 8px;
+        }
+
+        /* Additional Info Checkbox Styling */
+        .additional-info-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: flex-start;
+            cursor: pointer;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .checkbox-wrapper label {
+            cursor: pointer;
+            margin: 0;
+            font-size: 16px;
+            color: #856404;
+            font-weight: 600;
+        }
+
+        .checkbox-info {
+            margin-left: 32px;
+            margin-top: 8px;
+            color: #856404;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h2 style="color: #2c5aa0; margin-bottom: 20px;">Respond to Query (ID: {{ grievance[0] }})</h2>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message flash-{{ category }}">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' }}"></i>
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <div class="grievance-details">
+                <p><strong>Employee Code:</strong> {{ grievance[1] }}</p>
+                <p><strong>Employee Name:</strong> {{ grievance[2] }}</p>
+                <p><strong>Employee Email:</strong> {{ grievance[3] }}</p>
+                <p><strong>Employee Phone:</strong> {{ grievance[4] or 'Not provided' }}</p>
+                <p><strong>Query Type:</strong> {{ grievance_types[grievance[7]] }}</p>
+                <p><strong>Subject:</strong> {{ grievance[8] }}</p>
+                <p><strong>Description:</strong> {{ grievance[9] }}</p>
+                <p><strong>Status:</strong> {{ grievance[12] }}</p>
+                <p><strong>Submission Date:</strong> {{ grievance[11].strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                {% if grievance[10] %}
+                    <p><strong>Attachment:</strong> {{ grievance[10].split('/')[-1] }}</p>
+                {% endif %}
+            </div>
+
+            <form method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="responder_email">Your Email</label>
+                    <input type="email" id="responder_email" name="responder_email"
+                           class="form-control" value="{{ responder_email }}" required readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label for="responder_name">Your Name</label>
+                    <input type="text" id="responder_name" name="responder_name"
+                           class="form-control" value="{{ responder_name }}" required readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="response_text">Response <span class="required">*</span></label>
+                    <textarea id="response_text" name="response_text" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Update Status <span class="required">*</span></label>
+                    <select id="status" name="status" class="form-control" required>
+                        <option value="">-- Select Status --</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Resolved">Resolved</option>
+                    </select>
+                </div>
+
+                <!-- Additional Information Required Section (Shows only when In Progress is selected) -->
+                <div class="form-group" id="additional-info-section" style="display: none;">
+                    <div class="additional-info-box">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="additional_info_required" name="additional_info_required">
+                            <label for="additional_info_required">
+                                <i class="fas fa-info-circle"></i> 
+                                Additional Information Required from Employee
+                            </label>
+                        </div>
+                        <div class="checkbox-info">
+                            Check this box if you need more information from the employee before resolving the query. The employee will be notified via email and WhatsApp.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Supporting Document (Optional)</label>
+                    <div class="help-text">Upload screenshot, document, or any supporting file (Max 16MB)</div>
+                    <div class="file-upload">
+                        <input type="file" id="attachment" name="attachment" accept=".png,.jpg,.jpeg,.gif,.pdf,.doc,.docx">
+                        <label for="attachment" class="file-upload-label">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Click to upload file or drag and drop</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-paper-plane"></i> Submit Response
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('attachment');
+        const fileLabel = document.querySelector('.file-upload-label');
+        const fileSpan = document.querySelector('.file-upload-label span');
+        const statusSelect = document.getElementById('status');
+        const additionalInfoSection = document.getElementById('additional-info-section');
+        const additionalInfoCheckbox = document.getElementById('additional_info_required');
+
+        // Show/hide additional info checkbox based on status selection
+        statusSelect.addEventListener('change', function() {
+            if (this.value === 'In Progress') {
+                additionalInfoSection.style.display = 'block';
+            } else {
+                additionalInfoSection.style.display = 'none';
+                additionalInfoCheckbox.checked = false;
+            }
+        });
+
+        // File input change event
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const fileName = e.target.files[0].name;
+                const fileSize = (e.target.files[0].size / (1024 * 1024)).toFixed(2);
+                fileSpan.innerHTML = `<i class="fas fa-file-alt"></i> ${fileName} (${fileSize} MB)`;
+            } else {
+                fileSpan.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Click to upload file or drag and drop';
+            }
+        });
+
+        // Drag and drop functionality
+        fileLabel.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fileLabel.style.backgroundColor = '#e0e9ff';
+            fileLabel.style.borderColor = '#1e3a5f';
+            fileLabel.style.transform = 'scale(1.02)';
+        });
+
+        fileLabel.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fileLabel.style.backgroundColor = '#f8f9ff';
+            fileLabel.style.borderColor = '#2c5aa0';
+            fileLabel.style.transform = 'scale(1)';
+        });
+
+        fileLabel.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            fileLabel.style.backgroundColor = '#f8f9ff';
+            fileLabel.style.borderColor = '#2c5aa0';
+            fileLabel.style.transform = 'scale(1)';
+            
+            const files = e.dataTransfer.files;
+            
+            if (files.length > 0) {
+                const file = files[0];
+                const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+                
+                if (allowedTypes.includes(file.type) || file.name.match(/\.(png|jpg|jpeg|gif|pdf|doc|docx)$/i)) {
+                    if (file.size <= 16 * 1024 * 1024) {
+                        fileInput.files = files;
+                        const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+                        fileSpan.innerHTML = `<i class="fas fa-file-alt"></i> ${file.name} (${fileSize} MB)`;
+                    } else {
+                        alert('File size must be less than 16MB');
+                    }
+                } else {
+                    alert('Please select a valid file type (PNG, JPG, JPEG, GIF, PDF, DOC, DOCX)');
+                }
+            }
+        });
+
+        // Prevent default drag behaviors
+        document.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+
+        document.addEventListener('drop', function(e) {
+            e.preventDefault();
+        });
+
+        // Form validation before submit
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const status = statusSelect.value;
+            const response = document.getElementById('response_text').value.trim();
+            
+            if (!status) {
+                e.preventDefault();
+                alert('Please select a status before submitting.');
+                statusSelect.focus();
+                return false;
+            }
+            
+            if (response.length < 10) {
+                e.preventDefault();
+                alert('Please provide a detailed response (at least 10 characters).');
+                document.getElementById('response_text').focus();
+                return false;
+            }
+
+            // Confirm if additional info is required
+            if (additionalInfoCheckbox.checked) {
+                const confirmed = confirm('You have marked this query as requiring additional information from the employee. The employee will be notified via email and WhatsApp. Do you want to continue?');
+                if (!confirmed) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

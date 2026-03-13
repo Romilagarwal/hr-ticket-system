@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback for AskHR</title>
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile_fixes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/zoom_fix.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .form-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c5aa0;
+        }
+
+        .required {
+            color: #e74c3c;
+        }
+
+        select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        select:focus, textarea:focus {
+            outline: none;
+            border-color: #2c5aa0;
+            box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .rating-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .rating-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .rating-item:hover {
+            background: #f8f9fa;
+        }
+
+        .rating-item input[type="radio"] {
+            margin-right: 8px;
+            accent-color: #2c5aa0;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.15);
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .submit-btn:hover {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2c5aa0 100%);
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 8px 25px rgba(44, 90, 160, 0.25);
+        }
+
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+
+        .flash-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .star-rating {
+            font-size: 2rem;
+            direction: rtl;
+            display: inline-flex;
+        }
+
+        .star-rating input[type="radio"] {
+            display: none;
+        }
+
+        .star-rating label {
+            color: #ccc;
+            cursor: pointer;
+            margin: 0 2px;
+        }
+
+        .star-rating label i {
+            color: #ccc;
+            transition: color 0.2s;
+        }
+
+        .emoji-rating {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .emoji-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px 12px;
+            border: 2px solid #e0e6ed;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+            min-width: 90px;
+            text-align: center;
+        }
+
+        .emoji-label:hover {
+            background: #e3eafc;
+            border-color: #2c5aa0;
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.15);
+        }
+
+        .emoji-label.selected {
+            background: #2c5aa0;
+            border-color: #2c5aa0;
+            color: white;
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.25);
+        }
+
+        .emoji {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+            transition: transform 0.2s ease;
+        }
+
+        .emoji-label:hover .emoji {
+            transform: scale(1.1);
+        }
+
+        .rating-text {
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .emoji-label.selected .rating-text {
+            color: white;
+        }
+
+        /* Remove old star rating styles */
+        .star-rating {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .emoji-rating {
+                gap: 10px;
+            }
+            
+            .emoji-label {
+                min-width: 70px;
+                padding: 12px 8px;
+            }
+            
+            .emoji {
+                font-size: 2rem;
+            }
+            
+            .rating-text {
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h2 style="color: #2c5aa0; margin-bottom: 20px;">Feedback for AskHR (ID: {{ grievance_id }})</h2>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message flash-{{ category }}">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' }}"></i>
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Feedback for AskHR (ID: ...) -->
+            <form method="POST" action="{{ url_for('submit_feedback', grievance_id=grievance_id) }}" id="feedback-form">
+                <div class="form-group">
+                    <label for="satisfaction">Status <span class="required">*</span></label>
+                    <select id="satisfaction" name="satisfaction" class="form-control" required>
+                        <option value="">Select</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="not_resolved">Not Resolved</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Rate Your Experience <span class="required">*</span></label>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                        Please rate your experience with our HR service, regardless of whether your issue was resolved.
+                    </p>
+                    <div class="emoji-rating">
+                        <input type="radio" id="rating1" name="rating" value="1" style="display:none;">
+                        <label for="rating1" class="emoji-label" data-rating="1">
+                            <span class="emoji">😡</span>
+                            <span class="rating-text">Very Poor</span>
+                        </label>
+
+                        <input type="radio" id="rating2" name="rating" value="2" style="display:none;">
+                        <label for="rating2" class="emoji-label" data-rating="2">
+                            <span class="emoji">😞</span>
+                            <span class="rating-text">Poor</span>
+                        </label>
+
+                        <input type="radio" id="rating3" name="rating" value="3" style="display:none;">
+                        <label for="rating3" class="emoji-label" data-rating="3">
+                            <span class="emoji">😐</span>
+                            <span class="rating-text">Average</span>
+                        </label>
+
+                        <input type="radio" id="rating4" name="rating" value="4" style="display:none;">
+                        <label for="rating4" class="emoji-label" data-rating="4">
+                            <span class="emoji">😊</span>
+                            <span class="rating-text">Good</span>
+                        </label>
+
+                        <input type="radio" id="rating5" name="rating" value="5" style="display:none;">
+                        <label for="rating5" class="emoji-label" data-rating="5">
+                            <span class="emoji">🤩</span>
+                            <span class="rating-text">Excellent</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group" id="comments-group" style="display:none;">
+                    <label for="feedback_comments">Comments <span class="required">*</span></label>
+                    <textarea id="feedback_comments" name="feedback_comments" class="form-control" rows="3" minlength="30" placeholder="Please describe why your problem is not resolved in detail so that we can help you accordingly."></textarea>
+                    <div id="comment-error" style="color:red;display:none;font-size:13px;">Please describe why your problem is not resolved in detail so that we can help you accordingly.</div>
+                </div>
+                <div class="form-group" id="reopen-group" style="display:none;">
+                    <label for="reopen_ticket">Do you want to reopen this ticket? <span class="required">*</span></label>
+                    <select id="reopen_ticket" name="reopen_ticket" class="form-control">
+                    <option value="no">No, keep it closed</option>
+                    <option value="yes">Yes, please reopen it</option>
+                     </select>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submit-btn">
+                    <i class="fas fa-star"></i> Submit Feedback
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Emoji rating functionality
+        const emojiLabels = document.querySelectorAll('.emoji-label');
+        const ratingInputs = document.querySelectorAll('input[name="rating"]');
+
+        emojiLabels.forEach((label, index) => {
+            label.addEventListener('click', function() {
+                // Remove selected class from all labels
+                emojiLabels.forEach(l => l.classList.remove('selected'));
+                
+                // Add selected class to clicked label
+                this.classList.add('selected');
+                
+                // Check the corresponding radio button
+                const radioId = this.getAttribute('for');
+                document.getElementById(radioId).checked = true;
+                
+                console.log('Rating selected:', radioId, 'Value:', document.getElementById(radioId).value);
+            });
+        });
+
+        // Satisfaction logic
+        const satisfaction = document.getElementById('satisfaction');
+        const commentsGroup = document.getElementById('comments-group');
+        const comments = document.getElementById('feedback_comments');
+        const commentError = document.getElementById('comment-error');
+        const emojiRating = document.querySelector('.emoji-rating');
+
+        satisfaction.addEventListener('change', function() {
+        const reopenGroup = document.getElementById('reopen-group');
+    if (this.value === 'resolved') {
+        emojiRating.style.display = 'flex';
+        commentsGroup.style.display = 'none';
+        reopenGroup.style.display = 'none';
+        comments.required = false;
+        comments.value = '';
+        commentError.style.display = 'none';
+    } else if (this.value === 'not_resolved') {
+        emojiRating.style.display = 'none';
+        commentsGroup.style.display = 'block';
+        reopenGroup.style.display = 'block';
+        comments.required = true;
+    } else {
+        emojiRating.style.display = 'none';
+        commentsGroup.style.display = 'none';
+        reopenGroup.style.display = 'none';
+        comments.required = false;
+        comments.value = '';
+        commentError.style.display = 'none';
+    }
+});
+        if (satisfaction.value !== 'resolved') {
+        emojiRating.style.display = 'none';
+    }
+
+        // Form validation on submit
+document.getElementById('feedback-form').addEventListener('submit', function(e) {
+    console.log('Form submitted');
+
+    const satisfactionInput = document.getElementById('satisfaction');
+    const commentsInput = document.getElementById('feedback_comments');
+    const commentErrorDiv = document.getElementById('comment-error');
+
+    // 1. Check if a satisfaction status is selected
+    if (!satisfactionInput.value) {
+        alert('Please select a satisfaction status.');
+        e.preventDefault();
+        return;
+    }
+
+    // 2. If status is 'Resolved', THEN check for a rating.
+    if (satisfactionInput.value === 'resolved') {
+        const selectedRating = document.querySelector('input[name="rating"]:checked');
+        if (!selectedRating) {
+            alert('Please select a rating before submitting.');
+            e.preventDefault();
+            return;
+        }
+    }
+
+    // 3. If status is 'Not Resolved', THEN check for comments.
+    if (satisfactionInput.value === 'not_resolved') {
+        if (!commentsInput.value || commentsInput.value.trim().length < 30) {
+            commentErrorDiv.style.display = 'block';
+            e.preventDefault(); // Stop the form submission
+            return;
+        } else {
+            commentErrorDiv.style.display = 'none';
+        }
+    }
+    
+    console.log('Form validation passed');
+});
+    </script>
+</body>
+</html>
