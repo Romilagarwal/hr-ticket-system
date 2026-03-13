@@ -50,11 +50,54 @@ app.jinja_env.filters['nl2br'] = nl2br_filter
 
 app.secret_key = os.environ.get('SECRET_KEY')
 
+# Port and LAN host defaults
+PORT = int(os.environ.get('PORT', 8112))
+LAN_HOST = os.environ.get('LAN_HOST', '172.19.66.141')
+
+# Existing SERVER_HOST env var (if provided)
 SERVER_HOST = os.environ.get('SERVER_HOST')
 
-app.config['SERVER_NAME'] = os.environ.get('SERVER_NAME')
-app.config['PREFERRED_URL_SCHEME'] = os.environ.get('PREFERRED_URL_SCHEME', 'http')
-app.config['APPLICATION_ROOT'] = '/'
+def get_ngrok_url():
+    """Return the public HTTPS ngrok tunnel URL if ngrok is running locally."""
+    try:
+        r = requests.get("http://127.0.0.1:4042/api/tunnels", timeout=1)
+        tunnels = r.json().get("tunnels", [])
+        for t in tunnels:
+            if t.get("proto") == "https":
+                return t.get("public_url")
+    except Exception:
+        return None
+
+# Auto-detect ngrok URL if SERVER_HOST not provided
+if not SERVER_HOST:
+    ngrok_url = get_ngrok_url()
+    if ngrok_url:
+        SERVER_HOST = ngrok_url
+        os.environ['SERVER_HOST'] = ngrok_url
+        print(f"🔗 SERVER_HOST auto-set to ngrok URL: {ngrok_url}")
+    else:
+        # Fallback to LAN host + port
+        SERVER_HOST = f"http://{LAN_HOST}:{PORT}"
+        os.environ['SERVER_HOST'] = SERVER_HOST
+        print(f"🔁 SERVER_HOST set to LAN host: {SERVER_HOST}")
+else:
+    print(f"Using SERVER_HOST from environment: {SERVER_HOST}")
+
+# Configure Flask URL generation to use the detected host and scheme
+env_server_name = os.environ.get('SERVER_NAME')
+if env_server_name:
+    app.config['SERVER_NAME'] = env_server_name
+    print(f"Using SERVER_NAME from environment: {env_server_name}")
+else:
+    # When ngrok is auto-detected we avoid setting SERVER_NAME to prevent host-header mismatch (causes 404s)
+    if 'ngrok' in SERVER_HOST:
+        print("Detected ngrok tunnel; skipping setting app.config['SERVER_NAME'] (allows both ngrok and LAN access).")
+    else:
+        host_for_config = SERVER_HOST.replace('https://','').replace('http://','')
+        app.config['SERVER_NAME'] = host_for_config
+        print(f"SERVER_NAME set to {host_for_config}")
+app.config['PREFERRED_URL_SCHEME'] = os.environ.get('PREFERRED_URL_SCHEME', 'https' if SERVER_HOST.startswith('https') else 'http')
+app.config['APPLICATION_ROOT'] = '/' 
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(basedir, 'uploads')
@@ -262,6 +305,20 @@ def init_db():
                     END IF;
                 END $$;
             ''')
+            c.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_name='responses'
+                        AND column_name='additional_info_required'
+                    ) THEN
+                        ALTER TABLE responses
+                        ADD COLUMN additional_info_required BOOLEAN DEFAULT FALSE;
+                    END IF;
+                END $$;
+            ''')
 
             hr_users = [
                 ('9022246', 'Mr. Sunil', '7419990925', 'sunil.kumar@nvtpower.com', 'hr'),
@@ -454,14 +511,7 @@ def send_email_flask_mail(to_email, subject, body, attachment_path=None):
 
 
 def send_whatsapp_template(to_phone, template_name, lang_code, parameters):
-    """
-    Send a WhatsApp template message using Meta's Cloud API v22.0.
-    :param to_phone: Recipient phone number in international format, e.g. '919999999999'
-    :param template_name: Name of the approved template, e.g. 'otp_login_verification'
-    :param lang_code: Language code, e.g. 'en'
-    :param parameters: List of text values for the template placeholders (in order)
-    :return: True if sent, False otherwise
-    """
+
     phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
     access_token = os.environ.get('META_ACCESS_TOKEN')
     url = f"https://graph.facebook.com/v22.0/{phone_number_id}/messages"
@@ -848,6 +898,7 @@ def get_user_details():
     finally:
         db_pool.putconn(conn)
 
+# Modified respond_grievance route
 @app.route('/respond/<grievance_id>', methods=['GET', 'POST'])
 def respond_grievance(grievance_id):
     user = session.get('user')
@@ -874,29 +925,32 @@ def respond_grievance(grievance_id):
                 responder_name = request.form.get('responder_name')
                 response_text = request.form.get('response_text')
                 new_status = request.form.get('status')
+                additional_info_required = request.form.get('additional_info_required') == 'on'  # NEW LINE
 
                 if not all([responder_email, response_text, new_status]):
                     flash('Please fill in all required fields.', 'error')
                     return render_template('response.html', grievance=grievance, grievance_types=GRIEVANCE_TYPES,
                                            responder_name=responder_name, responder_email=responder_email)
 
-                # ensure file var always defined
-                file = request.files.get('attachment')  # <-- safe get
+                # Handle file upload
+                file = request.files.get('attachment')
                 response_attachment_path = None
                 if file and file.filename and allowed_file(file.filename):
                     upload_dir = get_upload_path('hr', user['emp_code'])
                     filename = secure_filename(f"response_{grievance_id}_{file.filename}")
                     full_path = os.path.join(upload_dir, filename)
                     file.save(full_path)
-                    response_attachment_path = filename  
+                    response_attachment_path = filename
                 else:
-                    full_path = None  # ensure defined
+                    full_path = None
 
                 response_date = datetime.now()
+                
+                # MODIFIED: Insert with additional_info_required column
                 c.execute('''INSERT INTO responses
-                            (grievance_id, responder_email, responder_name, response_text, response_date, attachment_path)
-                            VALUES (%s, %s, %s, %s, %s, %s)''',
-                         (grievance_id, responder_email, responder_name, response_text, response_date, response_attachment_path))
+                            (grievance_id, responder_email, responder_name, response_text, response_date, attachment_path, additional_info_required)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)''',
+                         (grievance_id, responder_email, responder_name, response_text, response_date, response_attachment_path, additional_info_required))
 
                 c.execute('UPDATE grievances SET status = %s, updated_at = %s WHERE id = %s',
                          (new_status, datetime.now(), grievance_id))
@@ -905,7 +959,18 @@ def respond_grievance(grievance_id):
                 employee_email = grievance[3]
                 employee_name = grievance[2]
                 feedback_url = 'http://172.19.66.141:8112/login'
-                print("Final feedback URL:", feedback_url)             
+                print("Final feedback URL:", feedback_url)
+                
+                # MODIFIED: Add additional information message to email
+                additional_info_message = ""
+                if additional_info_required:
+                    additional_info_message = """
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #ffc107;">
+                        <p style="margin: 0; color: #856404; font-weight: bold;">⚠️ Additional Information Required</p>
+                        <p style="margin: 5px 0 0 0; color: #856404;">The HR team requires additional information from you to process your query. Please review the response and provide the requested details.</p>
+                    </div>
+                    """
+                
                 response_email_body = f"""
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #2c3e50;">
@@ -918,6 +983,7 @@ def respond_grievance(grievance_id):
             <p><strong>Status:</strong> {new_status}</p>
             <p><strong>Resolution Date:</strong> {response_date.strftime('%d-%m-%Y, %H:%M:%S')}</p>
         </div>
+        {additional_info_message}
         <p>Please click on the below link to submit the feedback.</p>
         <p>
             <a href="{feedback_url}"            
@@ -931,6 +997,7 @@ def respond_grievance(grievance_id):
 </html>
 """
                 send_email_flask_mail(employee_email, f"Query Response (ID: {grievance_id})", response_email_body, full_path if file and file.filename != '' and allowed_file(file.filename) else None)
+                
                 employee_phone = grievance[4]
                 if employee_phone:
                     if new_status == 'Resolved':
@@ -947,18 +1014,35 @@ def respond_grievance(grievance_id):
                             ]
                         )
                     else:
-                        send_whatsapp_template(
-                            to_phone= employee_phone,
-                            template_name = "grievance_in_progress",
-                            lang_code = "en",
-                            parameters=[
-                                employee_name,         
-                                grievance_id,      
-                                grievance[8],
-                                new_status,      
-                                datetime.now().strftime('%d-%m-%Y, %H:%M:%S')  
-                            ]
-                        )
+                        # MODIFIED: Check if additional info is required for In Progress status
+                        if additional_info_required:
+                            # Use a different WhatsApp template that includes additional info message
+                            send_whatsapp_template(
+                                to_phone=employee_phone,
+                                template_name="grievance_additional_info_required",
+                                lang_code="en",
+                                parameters=[
+                                    employee_name,         
+                                    grievance_id,      
+                                    grievance[8],
+                                    new_status,      
+                                    datetime.now().strftime('%d-%m-%Y, %H:%M:%S')  
+                                ]
+                            )
+                        else:
+                            send_whatsapp_template(
+                                to_phone=employee_phone,
+                                template_name="grievance_in_progress",
+                                lang_code="en",
+                                parameters=[
+                                    employee_name,         
+                                    grievance_id,      
+                                    grievance[8],
+                                    new_status,      
+                                    datetime.now().strftime('%d-%m-%Y, %H:%M:%S')  
+                                ]
+                            )
+                
                 flash('Response submitted successfully.', 'success')
                 return redirect(url_for('hr_dashboard'))
 
@@ -1489,11 +1573,11 @@ def get_grievance_details(grievance_id):
         if grievance_dict['updated_at']:
             grievance_dict['updated_at'] = grievance_dict['updated_at'].strftime('%Y-%m-%d %H:%M')
         
-        # Get responses - FIXED VERSION to avoid duplicates
+        # MODIFIED: Get responses with additional_info_required
         cur.execute("""
             SELECT r.id, r.grievance_id, r.responder_email, r.responder_name, 
                    r.response_text, r.response_date::text, r.attachment_path,
-                   r.created_at
+                   r.created_at, r.additional_info_required
             FROM responses r
             WHERE r.grievance_id = %s
             ORDER BY r.response_date ASC
@@ -2060,14 +2144,6 @@ def master_dashboard():
     date_to = request.args.get('date_to', '').strip()
     search = request.args.get('search', '').strip()
     hr_emp_code = request.args.get('hr_emp_code', '').strip()
-
-    print(f"🔍 MASTER DASHBOARD FILTERS:")
-    print(f"   Status: '{status}' (empty={not status})")
-    print(f"   Type: '{grievance_type}' (empty={not grievance_type})")
-    print(f"   HR: '{hr_emp_code}' (empty={not hr_emp_code})")
-    print(f"   Date From: '{date_from}' (empty={not date_from})")
-    print(f"   Date To: '{date_to}' (empty={not date_to})")
-    print(f"   Search: '{search}' (empty={not search})")
 
     # Build filter_args only with non-empty values
     filter_args = {}
@@ -3603,4 +3679,6 @@ if __name__ == '__main__':
     scheduler_feedback.start()
     print("📅 Feedback reminder scheduler (daily + immediate) started")
 
-    app.run(debug=True, use_reloader=False)
+    print(f"🔭 Final SERVER_HOST: {SERVER_HOST} | PORT: {PORT} | app.config['SERVER_NAME']: {app.config.get('SERVER_NAME')}")
+
+    app.run(host='0.0.0.0', port=PORT, debug=True, use_reloader=False)
