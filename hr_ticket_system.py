@@ -204,6 +204,61 @@ def get_hr_contact(c, grievance_id=None, grievance_type=None):
     c.execute('SELECT employee_email, employee_name, employee_phone FROM users WHERE emp_code = %s', (hr_emp_code,))
     return c.fetchone()
 
+def fetchone_as_dict(c):
+    row = c.fetchone()
+    if not row:
+        return None
+    columns = [desc[0] for desc in c.description]
+    return dict(zip(columns, row))
+
+def fetchall_as_dicts(c):
+    rows = c.fetchall()
+    columns = [desc[0] for desc in c.description]
+    return [dict(zip(columns, row)) for row in rows]
+
+def archive_deleted_grievance(c, grievance_id, deleted_by_emp_code, deleted_by_name, deleted_by_role, deletion_reason):
+    c.execute('SELECT * FROM grievances WHERE id = %s', (grievance_id,))
+    grievance_data = fetchone_as_dict(c)
+    if not grievance_data:
+        return False
+
+    c.execute('SELECT * FROM responses WHERE grievance_id = %s ORDER BY response_date ASC, id ASC', (grievance_id,))
+    responses_data = fetchall_as_dicts(c)
+
+    c.execute('SELECT * FROM feedback WHERE grievance_id = %s', (grievance_id,))
+    feedback_data = fetchone_as_dict(c)
+
+    c.execute('SELECT * FROM reminder_sent WHERE grievance_id = %s ORDER BY reminder_date ASC, id ASC', (grievance_id,))
+    reminder_data = fetchall_as_dicts(c)
+
+    c.execute('''
+        INSERT INTO deleted_grievance_archive (
+            grievance_id,
+            grievance_data,
+            responses_data,
+            feedback_data,
+            reminder_data,
+            deleted_by_emp_code,
+            deleted_by_name,
+            deleted_by_role,
+            deletion_reason,
+            deleted_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ''', (
+        grievance_id,
+        psycopg2.extras.Json(grievance_data),
+        psycopg2.extras.Json(responses_data),
+        psycopg2.extras.Json(feedback_data),
+        psycopg2.extras.Json(reminder_data),
+        deleted_by_emp_code,
+        deleted_by_name,
+        deleted_by_role,
+        deletion_reason,
+        datetime.now(),
+    ))
+    return True
+
 def init_db():
     conn = db_pool.getconn()
     try:
@@ -270,7 +325,23 @@ def init_db():
                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                          FOREIGN KEY (grievance_id) REFERENCES grievances(id))''')
 
+            c.execute('''CREATE TABLE IF NOT EXISTS deleted_grievance_archive
+                        (id SERIAL PRIMARY KEY,
+                         grievance_id TEXT NOT NULL,
+                         grievance_data JSONB NOT NULL,
+                         responses_data JSONB,
+                         feedback_data JSONB,
+                         reminder_data JSONB,
+                         deleted_by_emp_code TEXT,
+                         deleted_by_name TEXT,
+                         deleted_by_role TEXT,
+                         deletion_reason TEXT,
+                         deleted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+
             c.execute('CREATE INDEX IF NOT EXISTS idx_reminder_grievance_id ON reminder_sent(grievance_id)')
+            c.execute('CREATE INDEX IF NOT EXISTS idx_deleted_archive_grievance_id ON deleted_grievance_archive(grievance_id)')
+            c.execute('CREATE INDEX IF NOT EXISTS idx_deleted_archive_deleted_at ON deleted_grievance_archive(deleted_at)')
 
             c.execute('''CREATE TABLE IF NOT EXISTS users
                         (id SERIAL PRIMARY KEY,
@@ -716,6 +787,7 @@ def submit_grievance():
             db_pool.putconn(conn)
 
         attachment_path = None
+        attachment_full_path = None
         if 'attachment' in request.files:
             file = request.files['attachment']
             print(f"\n📁 FILE UPLOAD:")
@@ -727,11 +799,11 @@ def submit_grievance():
                 original_filename = secure_filename(file.filename)
                 file_extension = original_filename.rsplit('.', 1)[1].lower()
                 filename = f"{grievance_id}.{file_extension}"        
-                full_path = os.path.join(upload_dir, filename)                
-                file.save(full_path)                
+                attachment_full_path = os.path.join(upload_dir, filename)
+                file.save(attachment_full_path)
                 attachment_path = filename  
                 print(f"   ✅ File saved: {attachment_path}")
-                print(f"   File size: {os.path.getsize(full_path)} bytes")
+                print(f"   File size: {os.path.getsize(attachment_full_path)} bytes")
             elif file and file.filename != '':
                 print(f"   ❌ File type not allowed: {file.filename}")
 
@@ -805,7 +877,7 @@ def submit_grievance():
 """
 
         print(f"✅ Email content prepared")
-        email_success = send_email_flask_mail(hr_email, email_subject, email_body, full_path if file and file.filename != '' and allowed_file(file.filename) else None)
+        email_success = send_email_flask_mail(hr_email, email_subject, email_body, attachment_full_path)
         if hr_phone:
             print(f"📱 Sending WhatsApp notification to HR...")
             whatsapp_success = send_whatsapp_template(
@@ -2834,7 +2906,18 @@ def delete_grievance_employee():
             hr_info = get_hr_contact(c, grievance_id=grievance_id)
             hr_email, hr_name, hr_phone = hr_info if hr_info else (None, None, None)
 
-            
+            archive_deleted_grievance(
+                c,
+                grievance_id=grievance_id,
+                deleted_by_emp_code=user.get('emp_code'),
+                deleted_by_name=user.get('employee_name'),
+                deleted_by_role=user.get('role'),
+                deletion_reason='Deleted by employee from self-service portal'
+            )
+
+            c.execute('DELETE FROM feedback WHERE grievance_id = %s', (grievance_id,))
+            c.execute('DELETE FROM responses WHERE grievance_id = %s', (grievance_id,))
+            c.execute('DELETE FROM reminder_sent WHERE grievance_id = %s', (grievance_id,))
             c.execute('DELETE FROM grievances WHERE id = %s AND emp_code = %s', (grievance_id, user['emp_code']))
             conn.commit()
 
@@ -2946,7 +3029,15 @@ def delete_grievance():
                 return redirect(url_for('master_dashboard'))
             employee_name, employee_email, employee_phone, subject = gr
 
-            
+            archive_deleted_grievance(
+                c,
+                grievance_id=grievance_id,
+                deleted_by_emp_code=user.get('emp_code'),
+                deleted_by_name=user.get('employee_name'),
+                deleted_by_role=user.get('role'),
+                deletion_reason=reason
+            )
+
             c.execute('DELETE FROM feedback WHERE grievance_id = %s', (grievance_id,))
             c.execute('DELETE FROM responses WHERE grievance_id = %s', (grievance_id,))
             c.execute('DELETE FROM reminder_sent WHERE grievance_id = %s', (grievance_id,))
